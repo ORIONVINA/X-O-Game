@@ -25,6 +25,8 @@ const CONFIG = {
   aim: { easy: 0.65, hard: 0.9 } // độ chính xác của máy ở sân bắn cung
 };
 const PIECE = { X: 'assets/x.webp', O: 'assets/o.webp' };
+const PACK = { X: 'assets/pack-x.webp', O: 'assets/pack-o.webp' };
+const KID_AGES = ['6-9', '10-14'];   // nhóm tuổi nhỏ: câu trả lời không gắn mã người chơi
 const other = p => p === 'X' ? 'O' : 'X';
 const $ = id => document.getElementById(id);
 const today = () => new Date().toLocaleDateString('sv');
@@ -51,7 +53,6 @@ const Store = {
 const Track = {
   send(event, data, anonymous){
     const p = Store.p;
-    if (p.minor && !anonymous) return;            // dưới 16 tuổi: không lưu gì thêm
     const row = Object.assign({ ts: new Date().toISOString(), event,
       uid: anonymous ? '' : p.uid, src: p.src, team: p.team || '',
       device: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop' }, data);
@@ -469,7 +470,7 @@ const UI = {
     $('game').hidden = true; $('home').hidden = false; $('result').hidden = true;
     const p = Store.p, t = p.team || 'X';
     document.body.dataset.team = t;
-    $('meImg').src = PIECE[t]; $('meTeam').textContent = 'Phe ' + t;
+    $('meImg').src = PACK[t]; $('meTeam').textContent = 'Phe ' + t;
     $('meStats').textContent = `${p.points} điểm · ${p.wins} trận thắng` + (p.streak > 1 ? ` · 🔥 ${p.streak} ngày liên tiếp` : '');
     this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size);
     $('sizeHint').textContent = this.opts.size === '3-3' ? 'Mỗi người chỉ giữ 3 quân. Đặt quân thứ 4 thì quân cũ nhất biến mất.' : '';
@@ -541,16 +542,14 @@ const UI = {
   /* Khảo sát: tuổi, giới tính, chấm điểm Tayo X và Tayo O */
   ans: {},
   surveyMaybe(){ const p = Store.p; if (p.survey === 'done' || $('survey').hidden === false) return false; if (p.plays === 1 || p.plays === 4){ this.surveyOpen(); return true; } return false; },
-  surveyOpen(){ this.ans = {}; $('survey').querySelectorAll('.chips button').forEach(b => b.setAttribute('aria-pressed', 'false')); $('surveyMore').hidden = false; $('surveySend').disabled = true; $('survey').hidden = false; },
+  surveyOpen(){ this.ans = {}; $('survey').querySelectorAll('.chips button').forEach(b => b.setAttribute('aria-pressed', 'false')); $('surveySend').disabled = true; $('survey').hidden = false; },
   surveyPick(q, v){
     this.ans[q] = v; const a = this.ans;
-    $('surveyMore').hidden = a.age === '<16';
-    $('surveySend').disabled = !(a.age === '<16' || (a.age && a.gender && a.rateX && a.rateO));
+    $('surveySend').disabled = !(a.age && a.gender && a.rateX && a.rateO);
   },
   surveySend(){
     const a = this.ans, p = Store.p;
-    if (a.age === '<16'){ Track.send('khao_sat', { age: '<16' }, true); p.minor = true; }   // chỉ đếm, không kèm mã người chơi
-    else Track.send('khao_sat', { age: a.age, gender: a.gender, rateX: a.rateX, rateO: a.rateO });
+    Track.send('khao_sat', { age: a.age, gender: a.gender, rateX: a.rateX, rateO: a.rateO }, KID_AGES.includes(a.age));
     p.survey = 'done'; p.points += CONFIG.points.survey; Store.save();
     $('survey').hidden = true; Sfx.win(); Fx.confetti();
     this.toast(`Cảm ơn bạn! +${CONFIG.points.survey} điểm cho Phe ${p.team || 'X'}`);

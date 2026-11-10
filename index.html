@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>XO Game – Play Game XO, Fun all day!</title>
 <meta name="description" content="XO Game – chọn phe X hoặc O, đấu caro ở sân bắn cung, rủ bạn chơi cùng.">
-<meta name="theme-color" content="#0b3fb0">
+<meta name="theme-color" content="#01030f">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="preload" as="image" href="assets/x.webp">
 <link rel="preload" as="image" href="assets/o.webp">
@@ -26,7 +26,7 @@
     </header>
 
     <div class="me">
-      <img id="meImg" src="assets/x.webp" alt="">
+      <img id="meImg" src="assets/pack-x.webp" alt="">
       <div class="who"><b id="meTeam">Phe X</b><span id="meStats">0 điểm</span></div>
       <button class="link" id="changeTeam">Đổi phe</button>
     </div>
@@ -87,8 +87,8 @@
     <h2>Bạn thuộc phe nào?</h2>
     <p>Mỗi trận thắng cộng điểm cho phe của bạn.</p>
     <div class="teams">
-      <button class="team x" data-team="X"><img src="assets/x.webp" alt=""><b>Phe X</b><span>Cool ngầu, mạnh mẽ.<br>Phủ syrup đậm đà.</span></button>
-      <button class="team o" data-team="O"><img src="assets/o.webp" alt=""><b>Phe O</b><span>Nhẹ nhàng, vui tươi.<br>Đậm vị khoai tây.</span></button>
+      <button class="team x" data-team="X"><img src="assets/pack-x.webp" alt="Gói Tayo X vị tảo ngọt"><b>Phe X</b><span>Cool ngầu, mạnh mẽ.<br>Vị tảo ngọt.</span></button>
+      <button class="team o" data-team="O"><img src="assets/pack-o.webp" alt="Gói Tayo O vị phô mai"><b>Phe O</b><span>Nhẹ nhàng, vui tươi.<br>Vị phô mai.</span></button>
     </div>
   </div>
 </div>
@@ -120,14 +120,14 @@
   <div class="sheet">
     <h2>Cho Tayo biết về bạn nha</h2>
     <p>Trả lời xong nhận ngay <b>+20 điểm</b> cho phe của bạn.</p>
-    <div class="q"><span>Bạn bao nhiêu tuổi?</span><div class="chips" data-q="age">
-      <button data-v="<16">Dưới 16</button><button data-v="16-22">16–22</button><button data-v="23-29">23–29</button><button data-v="30-39">30–39</button><button data-v="40+">40 trở lên</button></div></div>
+    <div class="q"><span>Bạn bao nhiêu tuổi?</span><div class="chips wide" data-q="age">
+      <button data-v="6-9">Từ 6 – 9 tuổi</button><button data-v="10-14">Từ 10 – 14 tuổi</button><button data-v="15-18">Từ 15 – 18 tuổi</button><button data-v="19-22">Từ 19 – 22 tuổi</button><button data-v="22+">Trên 22 tuổi</button></div></div>
     <div id="surveyMore" class="col">
-      <div class="q"><span>Giới tính</span><div class="chips" data-q="gender">
-        <button data-v="Nam">Nam</button><button data-v="Nữ">Nữ</button><button data-v="Khác">Khác</button><button data-v="Không nói">Không muốn nói</button></div></div>
-      <div class="q"><span><img src="assets/x.webp" alt="">Bạn chấm Tayo X mấy điểm?</span><div class="chips emoji" data-q="rateX">
+      <div class="q"><span>Giới tính</span><div class="chips wide" data-q="gender">
+        <button data-v="Nam">Nam</button><button data-v="Nữ">Nữ</button></div></div>
+      <div class="q"><span><img src="assets/pack-x.webp" alt="">Bạn chấm Tayo X mấy điểm?</span><div class="chips emoji" data-q="rateX">
         <button data-v="1" aria-label="1 điểm">😖</button><button data-v="2" aria-label="2 điểm">😕</button><button data-v="3" aria-label="3 điểm">😐</button><button data-v="4" aria-label="4 điểm">😋</button><button data-v="5" aria-label="5 điểm">🤩</button><button class="txt" data-v="chưa thử">Chưa thử</button></div></div>
-      <div class="q"><span><img src="assets/o.webp" alt="">Bạn chấm Tayo O mấy điểm?</span><div class="chips emoji" data-q="rateO">
+      <div class="q"><span><img src="assets/pack-o.webp" alt="">Bạn chấm Tayo O mấy điểm?</span><div class="chips emoji" data-q="rateO">
         <button data-v="1" aria-label="1 điểm">😖</button><button data-v="2" aria-label="2 điểm">😕</button><button data-v="3" aria-label="3 điểm">😐</button><button data-v="4" aria-label="4 điểm">😋</button><button data-v="5" aria-label="5 điểm">🤩</button><button class="txt" data-v="chưa thử">Chưa thử</button></div></div>
     </div>
     <p class="small">Câu trả lời ẩn danh, không kèm tên hay số điện thoại, chỉ dùng để Tayo hiểu người chơi hơn. Bấm Gửi là bạn đồng ý.</p>

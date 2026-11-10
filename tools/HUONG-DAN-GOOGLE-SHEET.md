@@ -21,7 +21,7 @@ Xong. Chơi thử 1 ván, sheet sẽ tự có 3 tab:
 
 Ghi chú:
 - `uid` là mã ngẫu nhiên của từng máy, không phải tên hay số điện thoại. Dùng để đếm người chơi và tính tỉ lệ quay lại.
-- Người chọn "Dưới 16" chỉ được ghi 1 dòng nhóm tuổi, không kèm `uid`, và game ngừng gửi data của máy đó.
+- Nhóm tuổi 6–9 và 10–14: câu trả lời khảo sát được ghi không kèm `uid`, nên không nối được với máy nào.
 - `src` lấy từ `?utm_source=` hoặc `?src=` trên link (nếu có), không thì là trang giới thiệu hoặc `direct`.
 
 ## Dashboard
