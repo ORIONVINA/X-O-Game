@@ -18,6 +18,7 @@ const CONFIG = {
   sheetUrl: '',
   points: { easy: 5, hard: 10, online: 10, survey: 20 },
   botDelay: 450,
+  growMax: 14,                   // bàn mở rộng: lớn nhất 14×14 để ô không quá nhỏ trên điện thoại
   keep: 3,                       // bàn 3×3: mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất
   storageKey: 'xo_profile_v2',
   roomPrefix: 'tayoxo-',
@@ -163,6 +164,20 @@ const Rules = {
     }
     return board.every(Boolean) ? { draw: true } : null;
   },
+  // Bàn mở rộng: quân vừa đặt tạo đúng (k-1) quân liên tiếp mà ô nối tiếp ở ít nhất một đầu nằm ngoài mép
+  nearWinAtEdge(board, n, k, i){
+    const p = board[i], row = Math.floor(i / n), col = i % n, inside = (r, c) => r >= 0 && c >= 0 && r < n && c < n;
+    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]){
+      let count = 1; const ends = [];
+      for (const s of [-1, 1]){
+        let r = row + dr * s, c = col + dc * s;
+        while (inside(r, c) && board[r * n + c] === p){ count++; r += dr * s; c += dc * s; }
+        ends.push(inside(r, c));
+      }
+      if (count === k - 1 && ends.includes(false)) return true;
+    }
+    return false;
+  },
   empty(board){ return board.map((v, i) => v ? null : i).filter(i => i !== null); }
 };
 
@@ -234,14 +249,15 @@ const AI = {
 
 /* 7. Game */
 const Game = {
-  n: 3, k: 3, vanish: true, arena: 'classic',
+  n: 3, k: 3, vanish: true, grow: false, arena: 'classic',
   mode: 'bot', level: 'hard', remote: false,   // mode: bot | local | online ; remote = máy khách trong phòng online
   board: [], q: { X: [], O: [] }, turn: 'X', my: 'X', history: [], over: false, result: null,
   score: { X: 0, O: 0 }, starter: 'X', moves: 0, t0: 0, botTimer: null,
 
-  setup(opts){ Object.assign(this, opts); this.vanish = this.n === 3; this.score = { X: 0, O: 0 }; this.starter = 'X'; },
+  setup(opts){ Object.assign(this, opts); this.n0 = this.n; this.vanish = this.n === 3; this.score = { X: 0, O: 0 }; this.starter = 'X'; },
   start(){
     clearTimeout(this.botTimer); Arena.stop();
+    if (this.n0) this.n = this.n0;
     this.board = Array(this.n * this.n).fill(null); this.q = { X: [], O: [] };
     this.turn = this.starter; this.history = []; this.over = false; this.result = null; this.moves = 0; this.t0 = Date.now();
     this.commit({ type: 'start' });
@@ -258,15 +274,27 @@ const Game = {
     const p = this.turn; let removed = null;
     this.board[i] = p; this.q[p].push(i);
     if (this.vanish && this.q[p].length > CONFIG.keep){ removed = this.q[p].shift(); this.board[removed] = null; }
-    this.history.push({ i, p, removed }); this.moves++;
-    const r = Rules.check(this.board, this.n, this.k);
+    this.moves++;
+    let r = Rules.check(this.board, this.n, this.k), grew = false, at = i;
+    if (!r?.winner && this.grow && this.n < CONFIG.growMax && Rules.nearWinAtEdge(this.board, this.n, this.k, i)){
+      at = this.resize(1, i); grew = true; r = null;       // thêm 1 vòng ô ở cả bốn phía, đối thủ đi tiếp để chặn
+    }
+    this.history.push({ i, p, removed, grew });
     if (r){
       this.over = true; this.result = r;
       if (r.winner) this.score[r.winner]++;
       this.starter = other(this.starter);
     } else this.turn = other(p);
-    this.commit({ type: 'move', i, p, removed });
+    this.commit({ type: 'move', i: at, p, removed, grew });
     return true;
+  },
+  // d = 1: thêm một vòng ô quanh bàn; d = -1: bỏ vòng ngoài (khi đi lại). Trả về vị trí mới của ô i
+  resize(d, i){
+    const o = this.n, n = o + 2 * d, map = x => (Math.floor(x / o) + d) * n + (x % o) + d;
+    const nb = Array(n * n).fill(null);
+    this.board.forEach((v, x) => { if (!v) return; const r = Math.floor(x / o) + d, c = x % o + d; if (r >= 0 && c >= 0 && r < n && c < n) nb[r * n + c] = v; });
+    this.board = nb; this.n = n; this.q = { X: this.q.X.map(map), O: this.q.O.map(map) };
+    return i === undefined ? -1 : map(i);
   },
   miss(){ const p = this.turn; this.turn = other(p); this.commit({ type: 'miss', p }); },
   undo(){
@@ -274,7 +302,8 @@ const Game = {
     clearTimeout(this.botTimer);
     const steps = this.mode === 'local' ? 1 : (this.turn === this.my ? 2 : 1);
     for (let s = 0; s < steps && this.history.length; s++){
-      const { i, p, removed } = this.history.pop();
+      const { i, p, removed, grew } = this.history.pop();
+      if (grew) this.resize(-1);
       this.board[i] = null; this.q[p].pop();
       if (removed !== null){ this.board[removed] = p; this.q[p].unshift(removed); }
       this.turn = p; this.moves--;
@@ -293,12 +322,13 @@ const Game = {
       }, CONFIG.botDelay);
     }
   },
-  snap(){ const { n, k, vanish, arena, board, q, turn, over, result, score, moves, my } = this; return { n, k, vanish, arena, board, q, turn, over, result, score, moves, host: my }; },
+  snap(){ const { n, k, vanish, grow, arena, board, q, turn, over, result, score, moves, my } = this; return { n, k, vanish, grow, arena, board, q, turn, over, result, score, moves, host: my }; },
   load(s){ const { host, ...rest } = s; Object.assign(this, rest); this.mode = 'online'; this.remote = true; this.my = other(host); },
 
   show(ev){
-    UI.render(ev.type === 'move' ? ev.i : undefined);
+    UI.render(ev.type === 'move' ? ev.i : undefined, ev.grew);
     if (ev.type === 'move'){
+      if (ev.grew){ const b = $('board').getBoundingClientRect(); Fx.pop('MỞ RỘNG!', b.left + b.width / 2, b.top + b.height / 2); Sfx.join(); UI.toast(`4 quân sát mép! Bàn mở thành ${this.n}×${this.n}, chặn lại đi nào.`); }
       Sfx.place(ev.p);
       const c = UI.cellCenter(ev.i); Fx.burst(c.x, c.y, ev.p); Fx.shake($('board'), ev.p === 'X');
       if (ev.removed !== null) setTimeout(() => Sfx.vanish(), 160);
@@ -320,7 +350,7 @@ const Game = {
     }
     p.plays++; p.points += gain; if (outcome === 'win') p.wins++;
     Store.save();
-    Track.send('van_dau', { mode: this.mode === 'bot' ? 'may_' + this.level : this.mode, arena: this.arena, size: this.n + 'x' + this.n,
+    Track.send('van_dau', { mode: this.mode === 'bot' ? 'may_' + this.level : this.mode, arena: this.arena, size: (this.grow ? 'morong_' : '') + this.n + 'x' + this.n,
       result: outcome, winner: r.winner || '', moves: this.moves, seconds: Math.round((Date.now() - (this.t0 || Date.now())) / 1000), plays: p.plays, streak: p.streak });
     setTimeout(() => {
       if (outcome === 'lose') Sfx.lose(); else { Sfx.win(); Fx.confetti(); }
@@ -473,14 +503,15 @@ const UI = {
     $('meImg').src = PACK[t]; $('meTeam').textContent = 'Phe ' + t;
     $('meStats').textContent = `${p.points} điểm · ${p.wins} trận thắng` + (p.streak > 1 ? ` · 🔥 ${p.streak} ngày liên tiếp` : '');
     this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size);
-    $('sizeHint').textContent = this.opts.size === '3-3' ? 'Mỗi người chỉ giữ 3 quân. Đặt quân thứ 4 thì quân cũ nhất biến mất.' : '';
+    $('sizeHint').textContent = this.opts.size === '3-3' ? 'Mỗi người chỉ giữ 3 quân. Đặt quân thứ 4 thì quân cũ nhất biến mất.'
+      : this.opts.size === '8-5-grow' ? 'Nối 5 quân để thắng. Có 4 quân liên tiếp vướng mép thì bàn tự thêm 1 ô ở cả bốn phía.' : '';
     this.sound();
     if (!p.team) $('teamPick').hidden = false;
   },
   sound(){ const on = Store.p.sound; $('soundHome').textContent = on ? '🔊 Âm thanh: bật' : '🔇 Âm thanh: tắt'; $('soundGame').textContent = on ? '🔊' : '🔇'; },
   startMatch(o){
-    const [n, k] = this.opts.size.split('-').map(Number);
-    Game.setup(Object.assign({ n, k, arena: this.opts.arena, remote: false, my: Store.p.team || 'X' }, o));
+    const [n, k, g] = this.opts.size.split('-'), grow = g === 'grow';
+    Game.setup(Object.assign({ n: +n, k: +k, grow, arena: this.opts.arena, remote: false, my: Store.p.team || 'X' }, o));
     this.showGame(); Game.start();
   },
   showGame(){ $('home').hidden = true; $('game').hidden = false; this.closeOverlays(); },
@@ -490,10 +521,10 @@ const UI = {
     if (Game.mode === 'local') return { X: 'Người X', O: 'Người O' };
     return { [my]: 'Bạn', [op]: Game.mode === 'bot' ? 'Máy' : 'Bạn bè' };
   },
-  render(last){
+  render(last, grew){
     const { n, board, result } = Game, el = $('board');
     el.style.gridTemplate = `repeat(${n},minmax(0,1fr)) / repeat(${n},minmax(0,1fr))`;
-    el.style.gap = n > 5 ? '4px' : n > 3 ? '6px' : '8px';
+    el.style.gap = n > 9 ? '2px' : n > 5 ? '4px' : n > 3 ? '6px' : '8px';
     el.style.padding = n > 5 ? '7px' : '10px';
     el.classList.toggle('over', !!result);
     // quân sắp biến mất ở lượt này
@@ -502,8 +533,9 @@ const UI = {
     board.forEach((v, i) => {
       const c = document.createElement('button');
       c.type = 'button';
-      c.className = 'cell' + (v ? ` filled ${v}` : '') + (result?.line?.includes(i) ? ' win' : '') + (i === last ? ' pop' : '') + (i === fading ? ' fade' : '');
-      c.style.borderRadius = n > 5 ? '8px' : n > 3 ? '10px' : '14px';
+      c.className = 'cell' + (v ? ` filled ${v}` : '') + (result?.line?.includes(i) ? ' win' : '') + (i === last ? ' pop' : '') + (i === fading ? ' fade' : '')
+        + (grew && (i < n || i >= n * (n - 1) || i % n === 0 || i % n === n - 1) ? ' fresh' : '');
+      c.style.borderRadius = n > 9 ? '5px' : n > 5 ? '8px' : n > 3 ? '10px' : '14px';
       c.setAttribute('aria-label', `Ô ${Math.floor(i / n) + 1}-${i % n + 1}${v ? ': ' + v : ''}`);
       if (v) c.innerHTML = `<img src="${PIECE[v]}" alt="${v}">`;
       c.onclick = () => { if (Game.arena === 'classic') Game.request(i); };

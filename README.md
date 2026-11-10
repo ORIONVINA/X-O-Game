@@ -6,6 +6,7 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 - **Chọn phe X hoặc O.** Giao diện đổi màu theo phe, thắng thì cộng điểm cho phe.
 - **Sân đấu:** Cổ điển (chạm để đặt quân) và Bắn cung (canh tâm ngắm rồi bắn que bánh vào ô).
 - **Bàn 3×3 không hòa:** mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất. Có thêm bàn 5×5 và 7×7.
+- **Bàn 8×8 mở rộng:** nối 5 quân để thắng. Có 4 quân liên tiếp vướng mép thì bàn tự thêm 1 ô ở cả bốn phía (8×8 → 10×10 → … tối đa 14×14).
 - **Chơi với máy** (Dễ, Khó) hoặc **chơi với bạn**: mời qua link, nhập mã phòng 4 ký tự, hoặc chơi chung 1 máy.
 - **Âm thanh và hiệu ứng:** tiếng đặt quân, bắn cung, thắng thua; pháo giấy, tia văng, rung bàn.
 - **Khảo sát sau ván đầu:** nhóm tuổi, giới tính, chấm điểm Tayo X và Tayo O (5 emoji).
