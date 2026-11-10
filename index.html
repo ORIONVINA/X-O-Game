@@ -33,8 +33,8 @@
 
     <div class="label">Sân đấu</div>
     <div class="seg" id="optArena" role="group" aria-label="Sân đấu">
-      <button data-v="classic">Cổ điển</button>
       <button data-v="archery">🏹 Bắn cung</button>
+      <button data-v="classic">Cổ điển</button>
     </div>
     <div class="label">Bàn cờ</div>
     <div class="seg grid" id="optSize" role="group" aria-label="Bàn cờ">
@@ -69,14 +69,22 @@
       <div class="card" id="cO"><img src="assets/o.webp" alt="O"><div><b id="sO">0</b><span id="nO">O</span></div></div>
     </div>
     <div class="status" id="status" aria-live="polite"></div>
-    <div class="board-wrap" id="boardWrap">
-      <div class="board" id="board"></div>
-      <div id="aim" hidden></div>
+    <div class="scene" id="scene">
+      <div class="ground" aria-hidden="true"></div>
+      <div class="wind" id="wind" hidden></div>
+      <div class="board-wrap" id="boardWrap">
+        <div class="board" id="board"></div>
+        <div id="aim" hidden></div>
+      </div>
+      <div class="stand" aria-hidden="true"></div>
+      <div class="bow" id="bow" aria-hidden="true">
+        <svg viewBox="0 0 240 150"><path class="limb-glow" d="M22,62 Q120,-26 218,62"/><path class="limb" d="M22,62 Q120,-26 218,62"/><polyline id="bowString" points="22,62 120,62 218,62"/></svg>
+        <img id="nock" src="assets/x.webp" alt="">
+      </div>
     </div>
     <div class="hint" id="gameHint"></div>
     <div class="row">
       <button class="btn" id="undo">↶ Đi lại</button>
-      <button class="btn main big" id="fire" hidden>🏹 BẮN!</button>
       <button class="btn" id="restart">Ván mới</button>
     </div>
   </main>

@@ -277,7 +277,9 @@ const Game = {
     this.moves++;
     let r = Rules.check(this.board, this.n, this.k), grew = false, at = i;
     if (!r?.winner && this.grow && this.n < CONFIG.growMax && Rules.nearWinAtEdge(this.board, this.n, this.k, i)){
-      at = this.resize(1, i); grew = true; r = null;       // thêm 1 vòng ô ở cả bốn phía, đối thủ đi tiếp để chặn
+      at = this.resize(1, i); grew = 'edge'; r = null;     // thêm 1 vòng ô ở cả bốn phía, đối thủ đi tiếp để chặn
+    } else if (r?.draw){
+      at = this.resize(1, i); grew = 'full'; r = null;     // kín bàn mà chưa ai thắng: mở rộng tiếp, không có hòa
     }
     this.history.push({ i, p, removed, grew });
     if (r){
@@ -328,7 +330,7 @@ const Game = {
   show(ev){
     UI.render(ev.type === 'move' ? ev.i : undefined, ev.grew);
     if (ev.type === 'move'){
-      if (ev.grew){ const b = $('board').getBoundingClientRect(); Fx.pop('MỞ RỘNG!', b.left + b.width / 2, b.top + b.height / 2); Sfx.join(); UI.toast(`4 quân sát mép! Bàn mở thành ${this.n}×${this.n}, chặn lại đi nào.`); }
+      if (ev.grew){ const b = $('board').getBoundingClientRect(); Fx.pop('MỞ RỘNG!', b.left + b.width / 2, b.top + b.height / 2); Sfx.join(); UI.toast(ev.grew === 'full' ? `Kín bàn rồi! Bàn mở thành ${this.n}×${this.n}, đấu tiếp nào.` : `4 quân sát mép! Bàn mở thành ${this.n}×${this.n}, chặn lại đi nào.`); }
       Sfx.place(ev.p);
       const c = UI.cellCenter(ev.i); Fx.burst(c.x, c.y, ev.p); Fx.shake($('board'), ev.p === 'X');
       if (ev.removed !== null) setTimeout(() => Sfx.vanish(), 160);
@@ -359,42 +361,93 @@ const Game = {
   }
 };
 
-/* 8. Arena – sân bắn cung: tâm ngắm chạy, bấm để bắn que bánh vào ô */
+/* 8. Arena – sân bắn cung, góc nhìn người bắn.
+   Bàn cờ dựng ở xa. Chạm giữ rồi kéo xuống để giương cung: kéo trái/phải canh hướng, kéo càng sâu mũi tên càng lên cao.
+   Tay rung nhẹ và có gió, nên phải canh rồi mới thả. Trúng ô trống thì đặt quân; ra ngoài hoặc trúng ô đã có quân là mất lượt. */
 const Arena = {
-  busy: false, on: false, raf: 0, u: .5, v: .5, t0: 0,
+  busy: false, on: false, drag: null, raf: 0, u: .5, v: .5, pull: 0, wind: 0, windKey: '', misses: 0,
+  el(){ return { scene: $('scene'), bow: $('bow'), string: $('bowString'), nock: $('nock'), aim: $('aim'), board: $('board') }; },
   sync(){
-    const aiming = Game.arena === 'archery' && !Game.over && Game.canAct();
-    $('board').classList.toggle('aiming', Game.arena === 'archery');
-    if (aiming) this.start(); else if (!this.busy) this.stop();
+    const archery = Game.arena === 'archery';
+    $('game').dataset.arena = Game.arena;
+    $('board').classList.toggle('aiming', archery);
+    if (!archery){ this.stop(); return; }
+    $('nock').src = PIECE[Game.turn];
+    if (!Game.over && Game.canAct()) this.enable(); else if (!this.busy) this.stop();
   },
-  start(){
-    if (this.on) return; this.on = true; this.t0 = performance.now() - Math.random() * 5000;
-    const aim = $('aim'); aim.hidden = false; aim.classList.remove('bot');
+  enable(){
+    this.on = true;
+    const key = Game.moves + Game.turn + this.misses;      // mỗi lượt bốc gió một lần
+    if (key !== this.windKey){
+      this.windKey = key;
+      const max = Game.moves < 2 ? 0 : Game.mode === 'bot' ? (Game.level === 'easy' ? .35 : .6) : .5;
+      this.wind = Math.round((Math.random() * 2 - 1) * max * 10) / 10;
+    }
+    const w = this.wind, t = $('wind');
+    t.textContent = w === 0 ? '🍃 Lặng gió' : `💨 Gió ${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} ô`;
+    t.hidden = false;
+  },
+  stop(){ this.on = false; this.drag = null; cancelAnimationFrame(this.raf); $('aim').hidden = true; $('wind').hidden = true; this.pose(.5, 0); },
+  // vẽ cung: xoay theo hướng ngắm, dây căng theo lực kéo
+  pose(u, pull){
+    const { bow, string, nock } = this.el(), y = 62 + pull * 66;
+    bow.style.transform = `rotate(${(u - .5) * 46}deg)`;
+    string.setAttribute('points', `22,62 120,${y} 218,62`);
+    nock.style.transform = `translate(-50%, ${y * bow.clientWidth / 240 - nock.clientHeight * .78}px)`;
+  },
+  sway(now){ const a = (.16 + Math.min(.2, Game.moves * .015)) / Game.n, t = now / 1000; return [a * Math.sin(t * 2.3), a * Math.sin(t * 1.7 + 1)]; },
+  aimAt(u, v){ const b = $('board'); $('aim').style.setProperty('--s', Math.max(18, Math.min(38, b.offsetWidth / Game.n * .85)) + 'px'); $('aim').style.transform = `translate(${u * b.offsetWidth}px,${v * b.offsetHeight}px)`; },
+  down(e){
+    if (!this.on || this.busy || !Game.canAct()) return;
+    this.drag = { x: e.clientX, y: e.clientY }; this.pull = 0; this.u = .5;
+    try { $('scene').setPointerCapture(e.pointerId); } catch {}
+    const aim = $('aim'); aim.classList.remove('bot');
     const loop = now => {
-      if (!this.on) return;
-      const sp = Math.min(1.9, 0.9 + Game.moves * 0.07) * (Game.n > 3 ? .8 : 1), t = (now - this.t0) / 1000 * sp;
-      this.u = .5 + .47 * Math.sin(t * 1.9); this.v = .5 + .47 * Math.sin(t * 1.33 + 1.1);
-      this.place(); this.raf = requestAnimationFrame(loop);
+      if (!this.drag) return;
+      const [sx, sy] = this.sway(now);
+      aim.hidden = this.pull < .1; this.aimAt(this.u + sx, this.v + sy); this.pose(this.u, this.pull);
+      this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
   },
-  stop(){ this.on = false; cancelAnimationFrame(this.raf); $('aim').hidden = true; },
-  place(){ const b = $('board'); $('aim').style.transform = `translate(${this.u * b.clientWidth}px,${this.v * b.clientHeight}px)`; },
-  cellAt(u, v){ const n = Game.n, c = Math.min(n - 1, Math.floor(u * n)), r = Math.min(n - 1, Math.floor(v * n)); return r * n + c; },
-  fly(u, v, piece){
-    const b = $('board').getBoundingClientRect(), tx = b.left + u * b.width, ty = b.top + v * b.height, a = $('arrow');
-    a.src = PIECE[piece]; a.hidden = false; Sfx.shoot();
-    const anim = a.animate([{ transform: `translate(${innerWidth / 2}px,${innerHeight + 60}px) scale(2.2) rotate(-200deg)` }, { transform: `translate(${tx}px,${ty}px) scale(.55) rotate(0deg)` }],
-      { duration: Fx.still() ? 1 : 300, easing: 'cubic-bezier(.2,.7,.3,1)' });
-    return new Promise(res => { anim.onfinish = anim.oncancel = () => { a.hidden = true; res(); }; });
+  move(e){
+    if (!this.drag) return;
+    const sc = $('scene'), maxPull = Math.min(170, sc.clientHeight * .3);
+    this.pull = Math.max(0, Math.min(1.12, (e.clientY - this.drag.y) / maxPull));
+    this.u = .5 - (e.clientX - this.drag.x) / (sc.clientWidth * .75);   // kéo sang trái thì ngắm sang phải, như ná
+    this.v = 1.12 - this.pull * 1.24;
   },
-  async fire(){
-    if (!this.on || this.busy || !Game.canAct()) return;
-    this.busy = true; this.on = false; cancelAnimationFrame(this.raf);
-    const u = this.u, v = this.v, i = this.cellAt(u, v);
-    await this.fly(u, v, Game.turn);
-    this.busy = false; $('aim').hidden = true;
-    if (Game.board[i]) Game.requestMiss(); else Game.request(i);
+  up(){
+    if (!this.drag) return;
+    this.drag = null; cancelAnimationFrame(this.raf);
+    if (this.pull < .1){ $('aim').hidden = true; this.pose(.5, 0); return; }   // kéo chưa đủ: hủy
+    const [sx, sy] = this.sway(performance.now());
+    this.fire(this.u + sx + this.wind / Game.n, this.v + sy);
+  },
+  // ô nằm dưới điểm rơi; -1 nếu ra ngoài bàn
+  cellAt(u, v){
+    if (u < 0 || u > 1 || v < 0 || v > 1) return -1;
+    const b = $('board').getBoundingClientRect(), x = b.left + u * b.width, y = b.top + v * b.height;
+    let best = -1, bd = Infinity;
+    [...$('board').children].forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y); if (d < bd){ bd = d; best = i; } });
+    return best;
+  },
+  fly(u, v, piece){
+    const b = $('board').getBoundingClientRect(), n = $('nock').getBoundingClientRect(), a = $('arrow');
+    const sx = n.left + n.width / 2, sy = n.top + n.height / 2, tx = b.left + u * b.width, ty = b.top + v * b.height, end = Math.max(.28, b.width / Game.n / 80);
+    a.src = PIECE[piece]; a.hidden = false; $('nock').style.visibility = 'hidden'; Sfx.shoot(); this.pose(this.u, 0);
+    const anim = a.animate([
+      { transform: `translate(${sx}px,${sy}px) scale(1) rotate(0deg)` },
+      { transform: `translate(${(sx + tx) / 2}px,${Math.min(sy, ty) - 70}px) scale(${(1 + end) / 2}) rotate(200deg)`, offset: .55 },
+      { transform: `translate(${tx}px,${ty}px) scale(${end}) rotate(360deg)` }], { duration: Fx.still() ? 1 : 560, easing: 'cubic-bezier(.3,.6,.5,1)' });
+    return new Promise(res => { anim.onfinish = anim.oncancel = () => { a.hidden = true; $('nock').style.visibility = ''; res(); }; });
+  },
+  async fire(u, v){
+    this.busy = true; this.on = false; $('wind').hidden = true;
+    const i = this.cellAt(u, v), piece = Game.turn;
+    await this.fly(u, v, piece);
+    this.busy = false; $('aim').hidden = true; this.pose(.5, 0);
+    if (i < 0 || Game.board[i]){ this.misses++; Game.requestMiss(); } else Game.request(i);
   },
   async botShoot(target){
     const n = Game.n; let i = target;
@@ -404,14 +457,16 @@ const Arena = {
       i = near[Math.floor(Math.random() * near.length)];
     }
     this.busy = true;
-    const aim = $('aim'), tu = (i % n + .5) / n, tv = (Math.floor(i / n) + .5) / n, su = this.u, sv = this.v, T = 700, s0 = performance.now();
-    aim.hidden = false; aim.classList.add('bot');
+    const cell = $('board').children[i].getBoundingClientRect(), b = $('board').getBoundingClientRect();
+    const tu = (cell.left + cell.width / 2 - b.left) / b.width, tv = (cell.top + cell.height / 2 - b.top) / b.height;
+    const aim = $('aim'), T = 800, s0 = performance.now(), power = Math.min(1, (1.12 - tv) / 1.24);
+    aim.hidden = false; aim.classList.add('bot'); this.u = tu;
     await new Promise(res => { const step = now => { const k = Math.min(1, (now - s0) / T), e = 1 - Math.pow(1 - k, 3);
-      this.u = su + (tu - su) * e; this.v = sv + (tv - sv) * e; this.place(); k < 1 ? requestAnimationFrame(step) : res(); }; requestAnimationFrame(step); });
+      this.aimAt(.5 + (tu - .5) * e, .5 + (tv - .5) * e); this.pose(.5 + (tu - .5) * e, power * e); k < 1 ? requestAnimationFrame(step) : res(); }; requestAnimationFrame(step); });
     await this.fly(tu, tv, Game.turn);
-    this.busy = false; aim.hidden = true;
+    this.busy = false; aim.hidden = true; this.pose(.5, 0);
     if (Game.over || !Game.isBotTurn()) return;    // ván đã đổi trong lúc bắn
-    if (Game.board[i]) Game.miss(); else Game.play(i);
+    if (Game.board[i]){ this.misses++; Game.miss(); } else Game.play(i);
   }
 };
 
@@ -489,7 +544,7 @@ const Net = {
 
 /* 10. UI */
 const UI = {
-  opts: { arena: 'classic', size: '3-3' },
+  opts: { arena: 'archery', size: '3-3' },
   toastTimer: 0,
   toast(text, ms = 3200){ const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, ms); },
   seg(id, val){ $(id).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === val)); },
@@ -504,7 +559,8 @@ const UI = {
     $('meStats').textContent = `${p.points} điểm · ${p.wins} trận thắng` + (p.streak > 1 ? ` · 🔥 ${p.streak} ngày liên tiếp` : '');
     this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size);
     $('sizeHint').textContent = this.opts.size === '3-3' ? 'Mỗi người chỉ giữ 3 quân. Đặt quân thứ 4 thì quân cũ nhất biến mất.'
-      : this.opts.size === '8-5-grow' ? 'Nối 5 quân để thắng. Có 4 quân liên tiếp vướng mép thì bàn tự thêm 1 ô ở cả bốn phía.' : '';
+      : this.opts.size === '8-5-grow' ? 'Nối 5 quân để thắng. Có 4 quân vướng mép hoặc kín bàn thì bàn tự thêm 1 ô ở cả bốn phía. Không có hòa.'
+      : 'Kín bàn mà chưa ai thắng thì bàn tự mở rộng. Không có hòa.';
     this.sound();
     if (!p.team) $('teamPick').hidden = false;
   },
@@ -527,6 +583,7 @@ const UI = {
     el.style.gap = n > 9 ? '2px' : n > 5 ? '4px' : n > 3 ? '6px' : '8px';
     el.style.padding = n > 5 ? '7px' : '10px';
     el.classList.toggle('over', !!result);
+    $('game').dataset.big = n > 9 ? 2 : n > 5 ? 1 : 0;   // bàn lớn thì dựng to hơn ở sân bắn cung
     // quân sắp biến mất ở lượt này
     const fading = Game.vanish && !result && Game.q[Game.turn].length >= CONFIG.keep ? Game.q[Game.turn][0] : -1;
     el.innerHTML = '';
@@ -553,8 +610,7 @@ const UI = {
     const archery = Game.arena === 'archery', mine = !result && (Game.mode === 'local' || Game.turn === Game.my);
     $('undo').hidden = archery || Game.mode === 'online';
     $('undo').disabled = Game.over || !Game.history.length;
-    $('fire').hidden = !archery; $('fire').disabled = !mine;
-    $('gameHint').textContent = result ? '' : archery ? (mine ? 'Canh tâm ngắm rồi bấm BẮN. Trúng ô đã có quân là mất lượt.' : 'Đợi đối thủ bắn…')
+    $('gameHint').textContent = result ? '' : archery ? (mine ? 'Chạm giữ, kéo xuống để giương cung. Canh hướng rồi thả tay để bắn.' : 'Đợi đối thủ bắn…')
       : fading >= 0 && mine ? 'Quân đang nhấp nháy sẽ biến mất khi bạn đặt quân mới.' : '';
   },
   cellCenter(i){ const c = $('board').children[i]; if (!c) return { x: innerWidth / 2, y: innerHeight / 2 }; const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; },
@@ -620,9 +676,11 @@ function wire(){
   $('restart').onclick = again;
   $('resultAgain').onclick = () => { again(); UI.surveyMaybe(); };
   $('resultHome').onclick = () => { if (Game.mode === 'online') Net.close(true); UI.home(); UI.surveyMaybe(); };
-  $('fire').onclick = () => Arena.fire();
-  $('boardWrap').onclick = () => { if (Game.arena === 'archery') Arena.fire(); };
-  document.addEventListener('keydown', e => { if (e.code === 'Space' && Game.arena === 'archery' && !$('game').hidden && Arena.on){ e.preventDefault(); Arena.fire(); } });
+  const sc = $('scene');
+  sc.addEventListener('pointerdown', e => { if (Game.arena === 'archery'){ e.preventDefault(); Arena.down(e); } });
+  sc.addEventListener('pointermove', e => Arena.move(e));
+  sc.addEventListener('pointerup', () => Arena.up());
+  sc.addEventListener('pointercancel', () => { Arena.drag = null; Arena.stop(); Arena.sync(); });
 
   $('survey').onclick = e => { const b = e.target.closest('.chips button'); if (!b) return; const box = b.parentElement;
     box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); UI.surveyPick(box.dataset.q, b.dataset.v); };
