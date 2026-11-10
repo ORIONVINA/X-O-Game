@@ -9,7 +9,6 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 - **Không có hòa:** bàn 3×3 mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất. Bàn 5×5, 7×7 kín bàn thì tự thêm 1 ô ở cả bốn phía.
 - **Bàn 8×8 mở rộng:** nối 5 quân để thắng. Có 4 quân liên tiếp vướng mép (hoặc kín bàn) thì bàn tự mở rộng.
 - **Chơi với máy** (Dễ, Khó) hoặc **chơi với bạn**: mời qua link, nhập mã phòng 4 ký tự, hoặc chơi chung 1 máy.
-- **Hoạt cảnh chờ lượt:** người đang chờ ngồi ăn gói Tayo của phe mình.
 - **Màn thắng:** chữ X hoặc O của bên thắng phóng to giữa màn hình rồi mới hiện kết quả.
 - **Âm thanh và hiệu ứng:** tiếng đặt quân, bắn cung, thắng thua; pháo giấy, tia văng, rung bàn.
 - **Khảo sát sau ván đầu:** nhóm tuổi, giới tính, chấm điểm Tayo X và Tayo O (5 emoji).

@@ -611,7 +611,6 @@ const UI = {
     $('roomTag').textContent = Game.mode === 'online' ? 'Phòng ' + Net.code : Game.mode === 'local' ? 'Chung 1 máy' : Game.level === 'easy' ? 'Máy dễ' : 'Máy khó';
     const st = $('status'); st.classList.toggle('end', !!result);
     st.innerHTML = result?.winner ? `🎉 ${icon(result.winner)} ${names[result.winner]} thắng!` : result?.draw ? '🤝 Hòa rồi!' : `Lượt của ${icon(Game.turn)} ${names[Game.turn]}`;
-    this.snack(names);
     const archery = Game.arena === 'archery', mine = !result && (Game.mode === 'local' || Game.turn === Game.my);
     $('undo').hidden = archery || Game.mode === 'online';
     $('undo').disabled = Game.over || !Game.history.length;
@@ -622,13 +621,6 @@ const UI = {
     const el = $('winFx'); el.hidden = true; el.dataset.w = winner; $('winFxImg').src = PIECE[winner];
     void el.offsetWidth; el.hidden = false;                 // bật lại để hoạt cảnh chạy từ đầu
     clearTimeout(this.winTimer); this.winTimer = setTimeout(() => { el.hidden = true; }, 1750);
-  },
-  // người đang chờ lượt ngồi ăn Tayo của phe mình
-  snack(names){
-    const el = $('snacker'), w = other(Game.turn);
-    el.hidden = !!Game.result; if (Game.result) return;
-    $('snackPack').src = PACK[w]; $('snackFace').textContent = w === 'X' ? '😎' : '😋';
-    $('snackText').textContent = `${names[w]} đang nhâm nhi Tayo ${w} chờ tới lượt`;
   },
   cellCenter(i){ const c = $('board').children[i]; if (!c) return { x: innerWidth / 2, y: innerHeight / 2 }; const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; },
 

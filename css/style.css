@@ -21,7 +21,7 @@ body[data-team="O"]{
 html{-webkit-text-size-adjust:100%;background:#01030f}
 body{margin:0;min-height:100vh;min-height:100dvh;color:var(--text);
   font-family:'Be Vietnam Pro',system-ui,sans-serif;font-weight:600;
-  display:flex;justify-content:center;padding:14px 14px calc(18px + env(safe-area-inset-bottom));overflow-x:hidden}
+  display:flex;justify-content:center;padding:max(14px,env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));overflow-x:hidden}
 /* nền: vòng neon đồng tâm (O) hoặc chữ X lồng nhau (X), nhịp sáng chậm */
 body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:var(--bg0) var(--bg-img) center/cover no-repeat;animation:pulse 3.2s ease-in-out infinite alternate}
 body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(90% 60% at 50% 45%,rgba(0,0,0,.25),rgba(0,0,0,.72))}
@@ -151,31 +151,16 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
   background:radial-gradient(circle,#ff2d2d 0 4px,transparent 5px),linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat}
 #aim.bot{filter:grayscale(1) brightness(1.3)}
 #arrow{position:fixed;left:0;top:0;width:70px;height:70px;margin:-35px 0 0 -35px;object-fit:contain;pointer-events:none;z-index:55;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 14px #fff)}
-/* Người đang chờ lượt ngồi ăn Tayo: mặt + gói bánh, que bánh bay vào miệng */
-.snacker{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px}
-.snack-art{position:relative;width:104px;height:64px;flex:none}
-.snack-art .face{position:absolute;left:0;top:6px;font-size:44px;line-height:1;animation:chew .7s ease-in-out infinite;transform-origin:50% 80%}
-.snack-art img{position:absolute;right:0;top:0;height:64px;width:auto;transform-origin:50% 100%;animation:tilt 1.4s ease-in-out infinite;filter:drop-shadow(0 0 6px rgba(var(--neon-rgb),.9))}
-.snack-art .stick{position:absolute;left:62px;top:14px;width:22px;height:7px;border-radius:4px;background:linear-gradient(#ffd98a,#d98a2b);box-shadow:0 0 4px rgba(0,0,0,.5);opacity:0;animation:bite 1.4s ease-in infinite}
-.snack-art .s2{animation-delay:.7s;top:22px}
-.snack-art .crunch{position:absolute;left:-6px;top:-10px;font-size:11px;font-style:italic;font-weight:900;color:var(--gold);text-shadow:0 0 6px #000,0 1px 0 #000;animation:crunch 1.4s steps(1) infinite;white-space:nowrap}
-.snack-text{font-size:12.5px;color:var(--text);text-shadow:0 1px 3px #000;max-width:170px;line-height:1.3}
-@keyframes chew{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.86) translateY(2px)}}
-@keyframes tilt{0%,100%{transform:rotate(6deg)}50%{transform:rotate(-12deg)}}
-@keyframes bite{0%{opacity:0;transform:translate(0,0) rotate(-20deg)}15%{opacity:1}80%{opacity:1;transform:translate(-36px,10px) rotate(-200deg)}100%{opacity:0;transform:translate(-40px,12px) rotate(-220deg) scale(.4)}}
-@keyframes crunch{0%,45%{opacity:0}50%,90%{opacity:1}}
-#game[data-arena="archery"] .snacker{position:absolute;right:6px;top:8px;margin:0;z-index:3;flex-direction:column;gap:2px;transform:scale(.72);transform-origin:100% 0}
-#game[data-arena="archery"] .snack-text{max-width:104px;text-align:center;font-size:12px}
-
 /* Màn thắng: chữ X hoặc O phóng to nổi bật giữa màn hình */
 #winFx{position:fixed;inset:0;z-index:45;display:grid;place-items:center;pointer-events:none;overflow:hidden;animation:winBg 1.7s ease-out both}
 #winFx[data-w="X"]{--c:30,155,255} #winFx[data-w="O"]{--c:255,138,30}
 #winFx{background:radial-gradient(circle,rgba(var(--c),.75) 0%,rgba(var(--c),.25) 35%,rgba(0,0,0,.88) 75%)}
-#winFx img{grid-area:1/1;width:min(82vw,62vh,460px);height:auto;animation:winZoom 1.7s cubic-bezier(.2,.9,.3,1) both;
+/* chữ thắng luôn nằm gọn trong màn hình: rộng tối đa 68% màn hình, phóng tối đa 1.16 lần */
+#winFx img{grid-area:1/1;width:min(68vw,48vh,400px);height:auto;animation:winZoom 1.7s cubic-bezier(.2,.9,.3,1) both;
   filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 26px rgb(var(--c))) drop-shadow(0 0 70px rgb(var(--c)))}
 #winFx .ring{grid-area:1/1;width:40vmin;height:40vmin;border-radius:50%;border:10px solid #fff;box-shadow:0 0 40px 10px rgb(var(--c)),inset 0 0 40px 10px rgb(var(--c));animation:winRing 1.1s ease-out .25s both}
 #winFx .r2{animation-delay:.5s}
-@keyframes winZoom{0%{transform:scale(.04) rotate(-50deg);opacity:0}30%{transform:scale(1.28) rotate(8deg);opacity:1}45%{transform:scale(.9) rotate(-4deg)}60%{transform:scale(1.12) rotate(2deg)}85%{transform:scale(1.05);opacity:1}100%{transform:scale(3.2);opacity:0}}
+@keyframes winZoom{0%{transform:scale(.04) rotate(-50deg);opacity:0}30%{transform:scale(1.16) rotate(8deg);opacity:1}45%{transform:scale(.9) rotate(-4deg)}60%{transform:scale(1.08) rotate(2deg)}85%{transform:scale(1);opacity:1}100%{transform:scale(1);opacity:0}}
 @keyframes winRing{from{transform:scale(.1);opacity:1}to{transform:scale(5);opacity:0}}
 @keyframes winBg{0%{opacity:0}12%{opacity:1}85%{opacity:1}100%{opacity:0}}
 .hint{text-align:center;font-size:12.5px;color:var(--text);min-height:18px;text-shadow:0 1px 3px #000}
