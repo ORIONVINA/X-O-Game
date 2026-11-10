@@ -93,6 +93,7 @@ const Sfx = {
     s.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
     s.connect(f).connect(g).connect(c.destination); s.start(t);
   },
+  boom(){ this.tone(120, .7, 'sawtooth', .22, 0, 40); this.noise(.5, .3, 0, 500); this.tone(300, .5, 'triangle', .14, .05, 1400); },
   click(){ this.tone(700, .06, 'square', .08); },
   place(p){ if (p === 'X'){ this.tone(190, .2, 'sawtooth', .2, 0, 70); this.noise(.1, .22, 0, 900); } else { this.tone(520, .14, 'sine', .22, 0, 820); this.tone(1040, .1, 'sine', .08, .05); } },
   shoot(){ this.noise(.2, .28, 0, 2600); this.tone(950, .2, 'triangle', .1, 0, 260); },
@@ -337,7 +338,7 @@ const Game = {
       if (this.result) this.finish();
     } else if (ev.type === 'miss'){
       Sfx.miss(); const r = $('board').getBoundingClientRect(); Fx.pop('TRƯỢT!', r.left + r.width / 2, r.top + r.height / 2);
-    } else if (ev.type === 'start'){ $('result').hidden = true; if (this.t0 === 0) this.t0 = Date.now(); }
+    } else if (ev.type === 'start'){ $('result').hidden = true; $('winFx').hidden = true; if (this.t0 === 0) this.t0 = Date.now(); }
     Arena.sync();
   },
 
@@ -354,10 +355,13 @@ const Game = {
     Store.save();
     Track.send('van_dau', { mode: this.mode === 'bot' ? 'may_' + this.level : this.mode, arena: this.arena, size: (this.grow ? 'morong_' : '') + this.n + 'x' + this.n,
       result: outcome, winner: r.winner || '', moves: this.moves, seconds: Math.round((Date.now() - (this.t0 || Date.now())) / 1000), plays: p.plays, streak: p.streak });
+    // 1) chữ X hoặc O của bên thắng phóng to giữa màn hình  2) rồi mới hiện bảng kết quả
     setTimeout(() => {
-      if (outcome === 'lose') Sfx.lose(); else { Sfx.win(); Fx.confetti(); }
-      UI.result(outcome, r, gain);
-    }, 750);
+      if (Game.result !== r) return;
+      UI.winFx(r.winner); Sfx.boom();
+      if (outcome === 'lose') setTimeout(() => Sfx.lose(), 500); else { setTimeout(() => Sfx.win(), 350); Fx.confetti(); }
+    }, 500);
+    setTimeout(() => { if (Game.result === r) UI.result(outcome, r, gain); }, 2100);
   }
 };
 
@@ -552,7 +556,7 @@ const UI = {
 
   home(){
     clearTimeout(Game.botTimer); Arena.stop(); Game.over = true;
-    $('game').hidden = true; $('home').hidden = false; $('result').hidden = true;
+    $('game').hidden = true; $('home').hidden = false; $('result').hidden = true; $('winFx').hidden = true;
     const p = Store.p, t = p.team || 'X';
     document.body.dataset.team = t;
     $('meImg').src = PACK[t]; $('meTeam').textContent = 'Phe ' + t;
@@ -607,11 +611,24 @@ const UI = {
     $('roomTag').textContent = Game.mode === 'online' ? 'Phòng ' + Net.code : Game.mode === 'local' ? 'Chung 1 máy' : Game.level === 'easy' ? 'Máy dễ' : 'Máy khó';
     const st = $('status'); st.classList.toggle('end', !!result);
     st.innerHTML = result?.winner ? `🎉 ${icon(result.winner)} ${names[result.winner]} thắng!` : result?.draw ? '🤝 Hòa rồi!' : `Lượt của ${icon(Game.turn)} ${names[Game.turn]}`;
+    this.snack(names);
     const archery = Game.arena === 'archery', mine = !result && (Game.mode === 'local' || Game.turn === Game.my);
     $('undo').hidden = archery || Game.mode === 'online';
     $('undo').disabled = Game.over || !Game.history.length;
     $('gameHint').textContent = result ? '' : archery ? (mine ? 'Chạm giữ, kéo xuống để giương cung. Canh hướng rồi thả tay để bắn.' : 'Đợi đối thủ bắn…')
       : fading >= 0 && mine ? 'Quân đang nhấp nháy sẽ biến mất khi bạn đặt quân mới.' : '';
+  },
+  winFx(winner){
+    const el = $('winFx'); el.hidden = true; el.dataset.w = winner; $('winFxImg').src = PIECE[winner];
+    void el.offsetWidth; el.hidden = false;                 // bật lại để hoạt cảnh chạy từ đầu
+    clearTimeout(this.winTimer); this.winTimer = setTimeout(() => { el.hidden = true; }, 1750);
+  },
+  // người đang chờ lượt ngồi ăn Tayo của phe mình
+  snack(names){
+    const el = $('snacker'), w = other(Game.turn);
+    el.hidden = !!Game.result; if (Game.result) return;
+    $('snackPack').src = PACK[w]; $('snackFace').textContent = w === 'X' ? '😎' : '😋';
+    $('snackText').textContent = `${names[w]} đang nhâm nhi Tayo ${w} chờ tới lượt`;
   },
   cellCenter(i){ const c = $('board').children[i]; if (!c) return { x: innerWidth / 2, y: innerHeight / 2 }; const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; },
 
