@@ -17,6 +17,7 @@ const CONFIG = {
   // Dán link Apps Script vào đây để data chảy về Google Sheet (xem tools/HUONG-DAN-GOOGLE-SHEET.md)
   sheetUrl: '',
   points: { easy: 5, hard: 10, online: 10, survey: 20 },
+  volume: 0.5,                   // âm lượng chung của game, 0 đến 1
   botDelay: 450,
   growMax: 14,                   // bàn mở rộng: lớn nhất 14×14 để ô không quá nhỏ trên điện thoại
   keep: 3,                       // bàn 3×3: mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất
@@ -75,7 +76,7 @@ const Sfx = {
   ctx: null,
   ac(){
     if (!Store.p.sound) return null;
-    try { this.ctx ||= new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); } catch { return null; }
+    try { if (!this.ctx){ this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.out = this.ctx.createGain(); this.out.gain.value = CONFIG.volume; this.out.connect(this.ctx.destination); } if (this.ctx.state === 'suspended') this.ctx.resume(); } catch { return null; }
     return this.ctx;
   },
   tone(f, dur, type = 'sine', vol = .18, at = 0, to){
@@ -83,7 +84,7 @@ const Sfx = {
     const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
     o.type = type; o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
-    o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + .02);
+    o.connect(g).connect(this.out); o.start(t); o.stop(t + dur + .02);
   },
   noise(dur, vol = .2, at = 0, freq = 1800){
     const c = this.ac(); if (!c) return;
@@ -91,17 +92,18 @@ const Sfx = {
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
     const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
     s.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
-    s.connect(f).connect(g).connect(c.destination); s.start(t);
+    s.connect(f).connect(g).connect(this.out); s.start(t);
   },
-  boom(){ this.tone(120, .7, 'sawtooth', .22, 0, 40); this.noise(.5, .3, 0, 500); this.tone(300, .5, 'triangle', .14, .05, 1400); },
-  click(){ this.tone(700, .06, 'square', .08); },
-  place(p){ if (p === 'X'){ this.tone(190, .2, 'sawtooth', .2, 0, 70); this.noise(.1, .22, 0, 900); } else { this.tone(520, .14, 'sine', .22, 0, 820); this.tone(1040, .1, 'sine', .08, .05); } },
-  shoot(){ this.noise(.2, .28, 0, 2600); this.tone(950, .2, 'triangle', .1, 0, 260); },
-  miss(){ this.tone(320, .3, 'triangle', .18, 0, 110); },
-  vanish(){ this.tone(760, .22, 'sine', .1, 0, 190); },
-  join(){ this.tone(523, .1, 'triangle', .16); this.tone(784, .16, 'triangle', .16, .1); },
-  win(){ [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, .22, 'square', .1, i * .11)); this.tone(1568, .5, 'triangle', .14, .56); },
-  lose(){ [392, 311, 262].forEach((f, i) => this.tone(f, .3, 'triangle', .16, i * .2)); }
+  // Âm thanh dịu: chỉ dùng sóng tròn (sine/triangle), không tiếng rè, không tiếng bấm ở mọi nút
+  boom(){ this.tone(110, .45, 'sine', .3, 0, 55); this.tone(330, .35, 'triangle', .1, .04, 880); },
+  click(){ this.tone(520, .04, 'sine', .06); },
+  place(p){ if (p === 'X'){ this.tone(170, .16, 'sine', .32, 0, 80); this.tone(340, .08, 'triangle', .08); } else { this.tone(520, .12, 'sine', .2, 0, 760); } },
+  shoot(){ this.noise(.14, .1, 0, 1400); this.tone(620, .16, 'sine', .08, 0, 240); },
+  miss(){ this.tone(260, .22, 'sine', .14, 0, 130); },
+  vanish(){ this.tone(620, .18, 'sine', .06, 0, 240); },
+  join(){ this.tone(523, .1, 'sine', .14); this.tone(784, .16, 'sine', .14, .1); },
+  win(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .2, 'triangle', .13, i * .11)); this.tone(1319, .45, 'sine', .12, .44); },
+  lose(){ [392, 330, 262].forEach((f, i) => this.tone(f, .26, 'sine', .13, i * .2)); }
 };
 
 /* 4b. Fx – pháo giấy, tia văng, rung bàn */
@@ -656,7 +658,7 @@ const UI = {
 
 /* Gắn sự kiện */
 function wire(){
-  document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('.cell')) Sfx.click(); }, true);
+  document.addEventListener('click', e => { if (e.target.closest('.btn, .team, .seg button')) Sfx.click(); }, true);
   $('optArena').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.arena = b.dataset.v; UI.home(); } };
   $('optSize').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.size = b.dataset.v; UI.home(); } };
   $('playEasy').onclick = () => UI.startMatch({ mode: 'bot', level: 'easy' });
