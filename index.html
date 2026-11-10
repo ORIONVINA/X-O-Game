@@ -2,80 +2,144 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tic Tac Toe – Xo Caro</title>
-<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>XO Game – Play Game XO, Fun all day!</title>
+<meta name="description" content="XO Game – chơi cờ X-O vui cả ngày. Đấu 2 người hoặc đấu máy.">
+<meta name="theme-color" content="#0b3fb0">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="preload" as="image" href="assets/x.webp">
+<link rel="preload" as="image" href="assets/o.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,600;0,800;1,900&display=swap" rel="stylesheet">
 <style>
+  /* Màu thương hiệu XO Game: xanh neon + vàng cam */
   :root{
-    --bg:#0f1226; --panel:#181c3a; --line:#2a2f5c; --text:#eef0ff; --muted:#9aa0c8;
-    --x:#ff5c7a; --o:#3ad1ff; --win:#ffd34d; --accent:#7c5cff;
+    --navy:#08226f; --ink:#0b1c5c; --blue:#0b4fc4; --sky:#2aa6ff; --cyan:#8fe1ff;
+    --yellow:#ffd42e; --orange:#f47a1c; --red:#d9390f; --white:#fff;
   }
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#1d2150,var(--bg) 60%);
-    color:var(--text);font-family:'Be Vietnam Pro',system-ui,sans-serif;display:flex;justify-content:center;padding:24px 14px}
-  .app{width:100%;max-width:520px;display:flex;flex-direction:column;gap:16px}
-  h1{margin:0;font-size:28px;font-weight:800;letter-spacing:.5px;text-align:center}
-  h1 .x{color:var(--x)} h1 .o{color:var(--o)}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
-  .settings{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
-  select{background:#0f1330;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px;font:inherit}
-  .score{display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center}
-  .score b{display:block;font-size:26px}
-  .score .sx b{color:var(--x)} .score .so b{color:var(--o)}
-  .score span{font-size:12px;color:var(--muted)}
-  .status{text-align:center;font-weight:600;font-size:18px;min-height:26px}
-  .board{display:grid;gap:8px;aspect-ratio:1;width:100%}
-  .cell{background:#0f1330;border:1px solid var(--line);border-radius:12px;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;font-weight:800;transition:.15s;user-select:none}
-  .cell:hover:not(.filled){background:#1a1f48}
-  .cell.X{color:var(--x)} .cell.O{color:var(--o)}
-  .cell.win{background:rgba(255,211,77,.18);border-color:var(--win);color:var(--win)}
-  .cell.pop{animation:pop .2s ease}
-  @keyframes pop{from{transform:scale(.6);opacity:.3}to{transform:scale(1);opacity:1}}
-  .actions{display:flex;gap:10px}
-  button{flex:1;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:600;cursor:pointer;color:#fff;background:var(--accent)}
-  button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
-  button:disabled{opacity:.4;cursor:default}
-  .foot{text-align:center;font-size:11px;color:var(--muted)}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;min-height:100vh;min-height:100dvh;color:var(--white);
+    font-family:'Be Vietnam Pro',system-ui,sans-serif;font-weight:600;
+    background:radial-gradient(120% 70% at 50% -5%,#7fd6ff 0%,#2487ea 32%,#0b46b8 66%,#08226f 100%) fixed;
+    display:flex;justify-content:center;padding:14px 14px calc(18px + env(safe-area-inset-bottom));overflow-x:hidden}
+  /* tia sáng nền kiểu sân khấu */
+  body::before{content:"";position:fixed;inset:-50%;z-index:-1;pointer-events:none;
+    background:repeating-conic-gradient(from 0deg at 50% 38%,rgba(255,255,255,.07) 0 7deg,transparent 7deg 18deg);
+    animation:spin 90s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .app{width:100%;max-width:500px;display:flex;flex-direction:column;gap:10px}
+
+  /* Header: logo + slogan */
+  .hero{display:flex;align-items:center;justify-content:center;gap:2px;margin:0 -6px}
+  .hero h1{margin:0;flex:0 0 43%;line-height:0}
+  .hero .logo{width:100%;height:auto;filter:drop-shadow(0 8px 14px rgba(4,20,80,.45));animation:float 3.6s ease-in-out infinite}
+  .hero .slogan{flex:1 1 0;min-width:0;height:auto;filter:drop-shadow(0 6px 10px rgba(4,20,80,.35))}
+  @keyframes float{50%{transform:translateY(-6px) rotate(-1.5deg)}}
+
+  /* Bộ chọn chế độ / bàn cờ */
+  .settings{display:flex;flex-direction:column;gap:8px}
+  .seg{display:flex;gap:4px;padding:4px;border-radius:999px;background:rgba(6,24,96,.55);
+    border:1.5px solid rgba(143,225,255,.45)}
+  .seg button{flex:1;border:0;border-radius:999px;padding:9px 4px;font:inherit;font-size:13px;font-weight:800;
+    color:#d6ecff;background:transparent;cursor:pointer;transition:.15s;white-space:nowrap}
+  .seg button:hover{background:rgba(255,255,255,.12)}
+  .seg button[aria-pressed="true"]{color:var(--ink);background:linear-gradient(#ffe46b,var(--yellow));
+    box-shadow:0 2px 0 #c98a00,0 0 14px rgba(255,212,46,.55)}
+
+  /* Bảng điểm */
+  .score{display:grid;grid-template-columns:1fr .8fr 1fr;gap:8px}
+  .card{background:linear-gradient(#fff,#e3f2ff);color:var(--ink);border-radius:16px;padding:8px 10px;
+    display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;
+    box-shadow:0 4px 0 #0a2f8f,0 8px 16px rgba(4,20,80,.3);border:2.5px solid transparent;transition:.2s}
+  .card img{width:38px;height:38px;object-fit:contain;flex:none}
+  .card div{display:flex;flex-direction:column;min-width:0;line-height:1.1}
+  .card b{font-size:26px;font-weight:800}
+  .card span{font-size:11px;color:#3c57a8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card.draw{flex-direction:column;gap:0;text-align:center;background:linear-gradient(#dcefff,#bfdfff)}
+  .card.turn{border-color:var(--yellow);transform:translateY(-3px);
+    box-shadow:0 7px 0 #0a2f8f,0 0 0 3px rgba(255,212,46,.35),0 0 22px rgba(255,212,46,.8)}
+
+  .status{align-self:center;display:flex;align-items:center;gap:8px;min-height:38px;padding:6px 18px;
+    border-radius:999px;background:rgba(6,24,96,.6);border:1.5px solid rgba(143,225,255,.45);
+    font-weight:800;font-size:16px;text-align:center}
+  .status img{width:24px;height:24px;object-fit:contain}
+  .status.end{color:var(--ink);background:linear-gradient(#ffe46b,var(--yellow));border-color:#fff;
+    box-shadow:0 0 22px rgba(255,212,46,.8);animation:bump .45s ease}
+  @keyframes bump{0%{transform:scale(.7)}60%{transform:scale(1.1)}100%{transform:scale(1)}}
+
+  /* Bàn cờ */
+  .board{display:grid;gap:8px;aspect-ratio:1;width:min(100%,max(260px,calc(100dvh - 430px)));align-self:center;
+    padding:10px;border-radius:22px;background:linear-gradient(160deg,#0d3fb5,#071c66);
+    box-shadow:0 0 0 3px var(--cyan),0 0 0 8px #0a2f8f,0 0 26px 8px rgba(143,225,255,.45),0 16px 30px rgba(4,20,80,.45)}
+  .cell{appearance:none;border:0;padding:0;margin:0;min-width:0;min-height:0;border-radius:14px;cursor:pointer;
+    background:linear-gradient(#fff,#d9edff);box-shadow:inset 0 -4px 0 #a9cdf5,inset 0 2px 0 #fff;
+    display:flex;align-items:center;justify-content:center;transition:transform .12s,filter .12s;
+    -webkit-tap-highlight-color:transparent}
+  .cell:not(.filled):hover{filter:brightness(1.06);transform:translateY(-2px)}
+  .cell.filled{cursor:default}
+  .cell img{width:80%;height:80%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 3px 3px rgba(4,20,80,.3))}
+  .cell.pop img{animation:pop .28s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes pop{from{transform:scale(.3) rotate(-25deg);opacity:0}to{transform:none;opacity:1}}
+  .cell.win{background:linear-gradient(#fff3a6,var(--yellow));box-shadow:inset 0 -4px 0 #e09a00,0 0 18px rgba(255,212,46,.95);
+    animation:glow .8s ease-in-out infinite alternate}
+  .cell.win img{animation:dance .8s ease-in-out infinite alternate}
+  .board.over .cell:not(.win){filter:saturate(.7) brightness(.86)}
+  @keyframes glow{to{box-shadow:inset 0 -4px 0 #e09a00,0 0 30px 4px rgba(255,160,30,1)}}
+  @keyframes dance{to{transform:scale(1.12) rotate(6deg)}}
+
+  /* Nút bấm */
+  .actions{display:flex;gap:10px;margin-top:4px}
+  .btn{flex:1;border:0;border-radius:14px;padding:12px 6px;font:inherit;font-weight:800;font-size:14px;cursor:pointer;
+    color:var(--ink);background:linear-gradient(#fff,#dcecff);box-shadow:0 4px 0 #9dbdea;transition:.1s}
+  .btn.main{flex:1.3;color:#5a1d00;background:linear-gradient(#ffe46b,var(--yellow) 45%,var(--orange));box-shadow:0 4px 0 #b9480a,0 0 18px rgba(255,190,40,.55)}
+  .btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 #9dbdea}
+  .btn.main:active{box-shadow:0 1px 0 #b9480a}
+  .btn:disabled{opacity:.45;cursor:default}
+  .foot{text-align:center;font-size:11px;color:#bcdcff;opacity:.85}
+  :focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+
+  @media (min-width:560px){ .seg button{font-size:14px} .board{width:min(100%,max(260px,calc(100dvh - 520px)))} }
+  @media (prefers-reduced-motion:reduce){ *,*::before{animation:none!important;transition:none!important} }
 </style>
 </head>
 <body>
 <div class="app">
-  <h1><span class="x">X</span> Tic Tac Toe <span class="o">O</span></h1>
+  <header class="hero">
+    <h1><img class="logo" src="assets/logo.webp" width="760" height="600" alt="XO Game"></h1>
+    <img class="slogan" src="assets/slogan.webp" width="860" height="352" alt="Play Game XO – Fun all day!">
+  </header>
 
-  <div class="panel settings">
-    <label>Chế độ
-      <select id="mode">
-        <option value="pvp">2 người chơi</option>
-        <option value="easy">Đấu máy – Dễ</option>
-        <option value="hard" selected>Đấu máy – Khó</option>
-      </select>
-    </label>
-    <label>Bàn cờ
-      <select id="size">
-        <option value="3-3" selected>3 × 3 (thắng 3)</option>
-        <option value="5-4">5 × 5 (thắng 4)</option>
-        <option value="7-5">7 × 7 (thắng 5)</option>
-      </select>
-    </label>
+  <div class="settings">
+    <div class="seg" id="mode" role="group" aria-label="Chế độ chơi">
+      <button data-v="pvp">2 người</button>
+      <button data-v="easy">Máy – Dễ</button>
+      <button data-v="hard">Máy – Khó</button>
+    </div>
+    <div class="seg" id="size" role="group" aria-label="Bàn cờ">
+      <button data-v="3-3">3×3 · thắng 3</button>
+      <button data-v="5-4">5×5 · thắng 4</button>
+      <button data-v="7-5">7×7 · thắng 5</button>
+    </div>
   </div>
 
-  <div class="panel score">
-    <div class="sx"><b id="sX">0</b><span id="nX">X</span></div>
-    <div><b id="sD">0</b><span>Hòa</span></div>
-    <div class="so"><b id="sO">0</b><span id="nO">O</span></div>
+  <div class="score">
+    <div class="card" id="cX"><img src="assets/x.webp" alt="X"><div><b id="sX">0</b><span id="nX">X</span></div></div>
+    <div class="card draw"><b id="sD">0</b><span>Hòa</span></div>
+    <div class="card" id="cO"><img src="assets/o.webp" alt="O"><div><b id="sO">0</b><span id="nO">O</span></div></div>
   </div>
 
-  <div class="status" id="status"></div>
+  <div class="status" id="status" aria-live="polite"></div>
   <div class="board" id="board"></div>
 
   <div class="actions">
-    <button class="ghost" id="undo">↶ Đi lại</button>
-    <button id="restart">Ván mới</button>
-    <button class="ghost" id="reset">Xóa điểm</button>
+    <button class="btn" id="undo">↶ Đi lại</button>
+    <button class="btn main" id="restart">Ván mới</button>
+    <button class="btn" id="reset">Xóa điểm</button>
   </div>
-  <div class="foot">v1.0 · Xo Caro</div>
+  <div class="foot">XO Game · Play Game XO, Fun all day!</div>
 </div>
 
 <script>
@@ -251,37 +315,48 @@ const $=id=>document.getElementById(id);
 const UI = {
   locked:false,
   lock(v){ this.locked=v; },
+  PIECE: { X:'assets/x.webp', O:'assets/o.webp' },
   render(last){
     const {n,board,result}=Game, el=$('board');
-    el.style.gridTemplateColumns=`repeat(${n},1fr)`;
-    el.style.gap = n>5?'5px':'8px';
-    const fs = n===3?'64px':n===5?'34px':'24px';
+    el.style.gridTemplate=`repeat(${n},minmax(0,1fr)) / repeat(${n},minmax(0,1fr))`;
+    el.style.gap = n>5?'4px':n>3?'6px':'8px';
+    el.style.padding = n>5?'7px':'10px';
+    el.classList.toggle('over', !!result);
     el.innerHTML='';
     board.forEach((v,i)=>{
-      const c=document.createElement('div');
+      const c=document.createElement('button');
+      c.type='button';
       c.className='cell'+(v?` filled ${v}`:'')+(result?.line?.includes(i)?' win':'')+(i===last?' pop':'');
-      c.style.fontSize=fs; c.textContent=v||'';
+      c.style.borderRadius = n>5?'8px':n>3?'10px':'14px';
+      c.setAttribute('aria-label', `Ô ${Math.floor(i/n)+1}-${i%n+1}${v?': '+v:''}`);
+      if (v) c.innerHTML=`<img src="${this.PIECE[v]}" alt="${v}">`;
       c.onclick=()=>{ if(!UI.locked && !Game.isBotTurn()) Game.play(i); };
       el.appendChild(c);
     });
-    const names = this.names();
+    const names = this.names(), icon = p => `<img src="${this.PIECE[p]}" alt="${p}">`;
     $('nX').textContent=names.X; $('nO').textContent=names.O;
     $('sX').textContent=Game.score.X; $('sO').textContent=Game.score.O; $('sD').textContent=Game.score.D;
-    $('status').innerHTML = result?.winner ? `🎉 ${names[result.winner]} thắng!`
+    $('cX').classList.toggle('turn', !result && Game.turn==='X');
+    $('cO').classList.toggle('turn', !result && Game.turn==='O');
+    const st=$('status');
+    st.classList.toggle('end', !!result);
+    st.innerHTML = result?.winner ? `🎉 ${icon(result.winner)} ${names[result.winner]} thắng!`
       : result?.draw ? '🤝 Hòa rồi!'
-      : `Lượt của <span style="color:var(--${Game.turn.toLowerCase()})">${names[Game.turn]}</span>`;
+      : `Lượt của ${icon(Game.turn)} ${names[Game.turn]}`;
     $('undo').disabled = Game.over || !Game.history.length;
+    this.seg('mode', Game.mode); this.seg('size', `${Game.n}-${Game.k}`);
   },
+  seg(id, val){ $(id).querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.v===val)); },
   names(){
-    if (Game.mode==='pvp') return {X:'Người chơi X', O:'Người chơi O'};
+    if (Game.mode==='pvp') return {X:'Người X', O:'Người O'};
     const bot=CONFIG.botPlays, me=bot==='X'?'O':'X';
-    return {[me]:'Bạn ('+me+')', [bot]:'Máy ('+bot+')'};
+    return {[me]:'Bạn', [bot]:'Máy'};
   }
 };
 
 /* Wiring */
-$('mode').onchange=e=>{ Game.mode=e.target.value; Game.start(); };
-$('size').onchange=e=>{ const [n,k]=e.target.value.split('-').map(Number); Game.n=n; Game.k=k; Game.start(); };
+$('mode').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; Game.mode=b.dataset.v; Game.start(); };
+$('size').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; [Game.n,Game.k]=b.dataset.v.split('-').map(Number); Game.start(); };
 $('restart').onclick=()=>Game.start();
 $('undo').onclick=()=>Game.undo();
 $('reset').onclick=()=>{ Game.score={X:0,O:0,D:0}; Store.save(Game.score); UI.render(); };

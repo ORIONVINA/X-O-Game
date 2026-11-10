@@ -7,6 +7,10 @@ Web game Xo Caro 1 trang (HTML/CSS/JS thuần, không cần build).
 - Bàn 3×3, 5×5, 7×7
 - Bảng điểm lưu trên trình duyệt, Đi lại, Ván mới
 
+## Giao diện
+- Bộ nhận diện XO Game (logo, slogan, quân X/O) nằm trong thư mục `assets/`
+- Muốn đổi hình: thay file cùng tên trong `assets/`; đổi màu: sửa biến trong `:root` ở đầu `index.html`
+
 ## Cấu trúc code (trong `index.html`)
 1. `CONFIG` – tuỳ chỉnh luật, tên người chơi
 2. `Rules` – luật thắng/hòa cho mọi kích thước bàn
