@@ -83,7 +83,7 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 .score{display:grid;grid-template-columns:1fr .7fr 1fr;gap:8px}
 .card{color:#fff;border-radius:16px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;transition:.2s;opacity:.82}
 .card img{width:38px;height:38px;object-fit:contain;flex:none}
-#cX img{filter:drop-shadow(0 0 6px #2aa6ff)} #cO img{filter:drop-shadow(0 0 6px #ff9a2e)}
+.card img,.status img{background:radial-gradient(circle,#fff 55%,rgba(255,255,255,0) 72%);border-radius:50%;padding:3px}
 .card div{display:flex;flex-direction:column;min-width:0;line-height:1.1}
 .card b{font-size:28px;font-style:italic;font-weight:900}
 .card span{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -108,8 +108,11 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 .cell.filled,.board.aiming .cell{cursor:default}
 .board.aiming{cursor:crosshair}
 .cell img{width:82%;height:82%;object-fit:contain;pointer-events:none}
-.cell.X img{filter:drop-shadow(0 0 3px #bfe9ff) drop-shadow(0 0 10px #1e8bff)}
-.cell.O img{filter:drop-shadow(0 0 3px #fff2a8) drop-shadow(0 0 10px #ff7a1e)}
+/* Ô đã có quân: nền sáng + viền neon theo màu quân, để X và O nổi hẳn lên trên nền tối */
+.cell.filled{background:radial-gradient(circle at 50% 40%,#fff 0%,#eef7ff 55%,#cfe6ff 100%);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
+.cell.X{border:2.5px solid #1e9bff;box-shadow:0 0 14px 2px rgba(30,155,255,.95),inset 0 -4px 0 rgba(11,79,196,.25)}
+.cell.O{border:2.5px solid #ff8a1e;background:radial-gradient(circle at 50% 40%,#fff 0%,#fff6e6 55%,#ffe2b8 100%);box-shadow:0 0 14px 2px rgba(255,138,30,.95),inset 0 -4px 0 rgba(217,57,15,.22)}
+.cell.filled img{filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))}
 .cell.pop img{animation:pop .3s cubic-bezier(.3,1.6,.5,1)}
 @keyframes pop{from{transform:scale(2.2) rotate(-25deg);opacity:0}to{transform:none;opacity:1}}
 .cell.fade img{animation:blink .7s ease-in-out infinite alternate}
@@ -142,12 +145,12 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 .bow .limb{fill:none;stroke:#fff;stroke-width:6;stroke-linecap:round;filter:drop-shadow(0 0 4px var(--neon-soft))}
 .bow .limb-glow{fill:none;stroke:var(--neon);stroke-width:20;stroke-linecap:round;filter:blur(6px)}
 .bow polyline{fill:none;stroke:#fff;stroke-width:2.2;filter:drop-shadow(0 0 3px #fff)}
-#nock{position:absolute;left:50%;top:0;width:27%;height:auto;filter:drop-shadow(0 0 10px #fff)}
+#nock{position:absolute;left:50%;top:0;width:27%;height:auto;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 12px #fff)}
 #aim{--s:38px;position:absolute;left:6px;top:6px;width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);border-radius:50%;pointer-events:none;z-index:5;
   border:3px solid #ff2d2d;box-shadow:0 0 0 2px #fff,0 0 16px 3px rgba(255,45,45,1),inset 0 0 0 2px #fff;
   background:radial-gradient(circle,#ff2d2d 0 4px,transparent 5px),linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat}
 #aim.bot{filter:grayscale(1) brightness(1.3)}
-#arrow{position:fixed;left:0;top:0;width:70px;height:70px;margin:-35px 0 0 -35px;object-fit:contain;pointer-events:none;z-index:55;filter:drop-shadow(0 0 14px #fff)}
+#arrow{position:fixed;left:0;top:0;width:70px;height:70px;margin:-35px 0 0 -35px;object-fit:contain;pointer-events:none;z-index:55;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 14px #fff)}
 .hint{text-align:center;font-size:12.5px;color:var(--text);min-height:18px;text-shadow:0 1px 3px #000}
 
 /* Lớp phủ */
