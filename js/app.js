@@ -450,6 +450,7 @@ const Arena = {
     this.setSpin(archery && Game.mode === 'bot' && Game.level === 'hard' && !Game.over);
     if (!archery){ this.stop(); return; }
     $('nock').src = PIECE[Game.turn];
+    if (!UI.ratioOk) $('bow').style.height = $('bow').offsetWidth * 150 / 240 + 'px';
     if (!Game.over && Game.canAct()) this.enable(); else if (!this.busy) this.stop();
   },
   // --- bia xoay ---
@@ -586,7 +587,7 @@ const Arena = {
 /* 9. Net – chơi với bạn qua link. Chủ phòng giữ trạng thái ván, máy khách gửi nước đi */
 const Net = {
   peer: null, conn: null, code: '', isHost: false, lib: null, last: 0, beat: 0,
-  loadLib(){ return this.lib ||= new Promise((res, rej) => { if (window.Peer) return res(); const s = document.createElement('script'); s.src = 'vendor/peerjs.min.js'; s.onload = res; s.onerror = () => { this.lib = null; rej(new Error('lib')); }; document.head.appendChild(s); }); },
+  loadLib(){ if (this.lib) return this.lib; return this.lib = new Promise((res, rej) => { if (window.Peer) return res(); const s = document.createElement('script'); s.src = 'vendor/peerjs.min.js'; s.onload = res; s.onerror = () => { this.lib = null; rej(new Error('lib')); }; document.head.appendChild(s); }); },
   link(){ return location.origin + location.pathname + '?room=' + this.code; },
   async host(){
     this.close(true);
@@ -659,6 +660,7 @@ const Net = {
 const UI = {
   opts: { arena: 'archery', size: '3-3' },
   toastTimer: 0,
+  ratioOk: !!(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1')),
   toast(text, ms = 3200){ const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, ms); },
   seg(id, val){ $(id).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === val)); },
   closeOverlays(){ ['friend', 'result', 'teamPick'].forEach(id => { $(id).hidden = true; }); $('toast').hidden = true; },
@@ -711,6 +713,7 @@ const UI = {
       c.onclick = () => { if (Game.arena === 'classic') Game.request(i); };
       el.appendChild(c);
     });
+    if (!UI.ratioOk) el.style.height = el.offsetWidth + 'px';      // máy đời cũ không hiểu aspect-ratio
     const names = this.names(), icon = p => `<img src="${PIECE[p]}" alt="${p}">`;
     $('nX').textContent = names.X; $('nO').textContent = names.O;
     $('sX').textContent = Game.score.X; $('sO').textContent = Game.score.O;
