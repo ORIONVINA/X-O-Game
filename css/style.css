@@ -28,7 +28,7 @@ body{margin:0;min-height:100vh;min-height:100dvh;color:var(--text);
 /* nền: vòng neon đồng tâm (O) hoặc chữ X lồng nhau (X), nhịp sáng chậm */
 body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:var(--bg0) var(--bg-img) center/cover no-repeat;animation:pulse 3.2s ease-in-out infinite alternate}
 body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(90% 60% at 50% 45%,rgba(0,0,0,.25),rgba(0,0,0,.72))}
-@keyframes pulse{from{opacity:.62;transform:scale(1)}to{opacity:1;transform:scale(1.045)}}
+@keyframes pulse{from{opacity:.62}to{opacity:1}}
 [hidden]{display:none!important}
 button{font:inherit;-webkit-tap-highlight-color:transparent}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
@@ -55,10 +55,11 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 .link{border:0;background:none;color:var(--neon-soft);font-weight:800;font-size:13px;text-decoration:underline;cursor:pointer;padding:8px 2px}
 
 .label{font-size:12px;font-style:italic;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--neon-soft);text-shadow:0 0 8px var(--neon);margin:4px 4px -4px}
-.seg{display:flex;gap:4px;padding:4px;border-radius:14px}
-.seg button{flex:1;border:0;border-radius:10px;padding:10px 4px;font-size:13px;font-weight:800;color:var(--text);opacity:.8;background:transparent;cursor:pointer;transition:.15s;white-space:nowrap}
-.seg button:hover{background:rgba(var(--neon-rgb),.2)}
-.seg button[aria-pressed="true"]{opacity:1;color:#fff;background:linear-gradient(rgba(var(--neon-rgb),1),rgba(var(--neon-rgb),.6));box-shadow:0 0 16px var(--neon),inset 0 0 0 1.5px var(--neon-soft);text-shadow:0 1px 2px rgba(0,0,0,.6)}
+/* Nút chọn: không dùng chuyển động mờ dần hay bóng tỏa ra ngoài, vì iOS (nhất là trình duyệt trong Zalo, Facebook) vẽ lại sót và để lại mảng màu cũ khi bấm đổi nhanh */
+.seg{display:flex;gap:4px;padding:4px;border-radius:14px;overflow:hidden;transform:translateZ(0)}
+.seg button{flex:1;border:0;border-radius:10px;padding:10px 4px;font-size:13px;font-weight:800;color:rgba(234,244,255,.8);background:transparent;cursor:pointer;white-space:nowrap;-webkit-appearance:none;appearance:none}
+@media (hover:hover){ .seg button:hover{background:rgba(var(--neon-rgb),.2)} }
+.seg button[aria-pressed="true"]{color:#fff;background:linear-gradient(rgba(var(--neon-rgb),1),rgba(var(--neon-rgb),.6));box-shadow:inset 0 0 0 1.5px var(--neon-soft);text-shadow:0 1px 2px rgba(0,0,0,.6)}
 
 .seg.grid{display:grid;grid-template-columns:1fr 1fr}
 .cell.fresh{animation:fresh 1.4s ease-out}

@@ -665,7 +665,8 @@ const UI = {
   toastTimer: 0,
   ratioOk: !!(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1')),
   toast(text, ms = 3200){ const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, ms); },
-  seg(id, val){ $(id).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === val)); },
+  seg(id, val){ const box = $(id); box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === val));
+    box.style.display = 'none'; void box.offsetHeight; box.style.display = ''; },   // ép vẽ lại cả cụm, tránh sót mảng màu cũ trên iOS
   closeOverlays(){ ['friend', 'result', 'teamPick'].forEach(id => { $(id).hidden = true; }); $('toast').hidden = true; },
 
   home(){
@@ -798,7 +799,7 @@ function wire(){
   $('playHard').onclick = () => UI.startMatch({ mode: 'bot', level: 'hard' });
   $('playFriend').onclick = () => { UI.friendMenu(); $('friend').hidden = false; };
   $('changeTeam').onclick = () => { $('teamPick').hidden = false; };
-  $('teamPick').onclick = e => { const b = e.target.closest('[data-team]'); if (!b) return; const first = !Store.p.team; Store.p.team = b.dataset.team; Store.save(); $('teamPick').hidden = true; Sfx.join(); UI.home(); Track.send(first ? 'chon_phe' : 'doi_phe', {}); };
+  $('teamPick').onclick = e => { const b = e.target.closest('.team'); if (!b) return;   // chỉ tính khi bấm đúng thẻ phe const first = !Store.p.team; Store.p.team = b.dataset.team; Store.save(); $('teamPick').hidden = true; Sfx.join(); UI.home(); Track.send(first ? 'chon_phe' : 'doi_phe', {}); };
   const toggleSound = () => { Store.p.sound = !Store.p.sound; Store.save(); UI.sound(); Sfx.click(); };
   $('soundHome').onclick = toggleSound; $('soundGame').onclick = toggleSound;
 
