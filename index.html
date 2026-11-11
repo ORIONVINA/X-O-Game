@@ -18,29 +18,49 @@
 <body>
 <canvas id="fx"></canvas>
 
-<!-- MỞ ĐẦU + QUẢNG CÁO SẢN PHẨM. Sửa chữ quảng cáo ngay tại đây. -->
+<!-- TEASER MỞ ĐẦU (15 giây, 6 cảnh). Sửa chữ quảng cáo ngay tại đây. -->
 <div id="intro" data-step="0">
-  <button class="link" id="introSkip">Bỏ qua</button>
+  <div class="i-half hx" aria-hidden="true"></div><div class="i-half ho" aria-hidden="true"></div><div class="i-half hl" aria-hidden="true"></div>
   <section class="istage s0">
     <img class="i-logo" src="assets/logo.webp" alt="XO Game">
     <img class="i-slogan" src="assets/slogan.webp" alt="Play Game XO – Fun all day!">
     <p class="i-tap shout">Chạm để vào game</p>
   </section>
-  <section class="istage s1 ad ad-x">
+  <section class="istage t1">
+    <img class="vs-x" src="assets/pack-x.webp" alt="Gói Tayo X"><img class="vs-o" src="assets/pack-o.webp" alt="Gói Tayo O">
+    <b class="vs shout">VS</b>
+    <h2 class="shout vs-q">Bạn về phe nào?</h2>
+  </section>
+  <section class="istage t2 ad ad-x">
     <img class="i-pack" src="assets/pack-x.webp" alt="Gói Tayo X">
     <h2 class="shout">Tayo X</h2><p class="i-flavor shout">Vị tảo ngọt</p><p class="i-line">Cool ngầu · Đậm đà</p>
   </section>
-  <section class="istage s2 ad ad-o">
+  <section class="istage t3 ad ad-o">
     <img class="i-pack" src="assets/pack-o.webp" alt="Gói Tayo O">
     <h2 class="shout">Tayo O</h2><p class="i-flavor shout">Vị phô mai</p><p class="i-line">Nhẹ nhàng · Đậm vị khoai tây</p>
   </section>
-  <section class="istage s3">
-    <div class="i-pair"><img src="assets/pack-x.webp" alt=""><img src="assets/pack-o.webp" alt=""></div>
-    <h2 class="shout">Bánh snack khoai tây<br>Tayo X-O</h2>
-    <p class="i-line">Chọn phe. Giương cung. Nối quân để thắng.</p>
+  <section class="istage t4">
+    <div class="tz" id="tzScene" aria-hidden="true">
+      <div class="tz-ground"></div>
+      <div class="tz-board" id="tzBoard"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="tz-aim" id="tzAim" hidden></div>
+      <img class="tz-arrow" id="tzArrow" src="assets/x.webp" alt="" hidden>
+      <div class="tz-bow"><svg viewBox="0 0 240 110"><path class="limb-glow" d="M22,62 Q120,-26 218,62"/><path class="limb" d="M22,62 Q120,-26 218,62"/><polyline id="tzString" points="22,62 120,62 218,62"/></svg><img id="tzNock" src="assets/x.webp" alt=""></div>
+    </div>
+    <h2 class="shout">Giương cung. Bắn!</h2>
+  </section>
+  <section class="istage t5">
+    <div class="tz-board win" aria-hidden="true"><i class="w"><img src="assets/x.webp" alt=""></i><i class="w"><img src="assets/x.webp" alt=""></i><i class="w"><img src="assets/x.webp" alt=""></i><i class="f"><img src="assets/o.webp" alt=""></i><i class="f"><img src="assets/o.webp" alt=""></i><i></i><i></i><i></i><i></i></div>
+    <div class="t5-fx" aria-hidden="true"><img class="wpack" src="assets/pack-x.webp" alt=""><img class="wletter" src="assets/x.webp" alt=""></div>
+    <h2 class="shout t5-win">Nối quân là thắng!</h2>
+  </section>
+  <section class="istage t6">
+    <img class="i-logo small" src="assets/logo.webp" alt="XO Game">
+    <div class="gold" id="goldIntro"></div>
+    <p class="i-line">Chọn phe. Giương cung. Kéo điểm về cho phe mình.</p>
     <button class="btn main big" id="introPlay">Chơi ngay</button>
   </section>
-  <div class="i-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="i-bar" aria-hidden="true"><i id="introBar"></i></div>
 </div>
 <div class="app">
 
@@ -55,14 +75,30 @@
       <img id="meImg" src="assets/pack-x.webp" alt="">
       <div class="who"><b id="meTeam">Phe X</b><span id="meStats">0 điểm</span></div>
       <button class="link" id="changeTeam">Đổi phe</button>
+      <button class="icon-btn" id="soundHome" aria-label="Bật tắt âm thanh"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path class="wave" d="M15.5 8.5a5 5 0 010 7M18 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="mute" d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="soundText" class="sr">Âm thanh: bật</span></button>
     </div>
 
-    <div class="label">Sân đấu</div>
+    <div class="gold" id="goldHome" hidden></div>
+
+    <div class="label">1. Hình thức chơi</div>
+    <div class="modes" id="optMode" role="group" aria-label="Hình thức chơi">
+      <button class="mode" data-v="bot"><b>Với máy</b><span>Chơi một mình</span></button>
+      <button class="mode" data-v="friend"><b>Với bạn</b><span>Mời link, chung máy</span></button>
+    </div>
+
+    <div class="label">2. Mức độ</div>
+    <div class="seg" id="optLevel" role="group" aria-label="Mức độ">
+      <button data-v="easy">Dễ</button>
+      <button data-v="medium">Vừa</button>
+      <button data-v="hard">Khó</button>
+    </div>
+    <div class="hint" id="levelHint"></div>
+
+    <div class="label">3. Sân và bàn cờ</div>
     <div class="seg" id="optArena" role="group" aria-label="Sân đấu">
       <button data-v="archery">Bắn cung</button>
       <button data-v="classic">Cổ điển</button>
     </div>
-    <div class="label">Bàn cờ</div>
     <div class="seg grid" id="optSize" role="group" aria-label="Bàn cờ">
       <button data-v="3-3">3×3 không hòa</button>
       <button data-v="5-4">5×5 · thắng 4</button>
@@ -71,17 +107,7 @@
     </div>
     <div class="hint" id="sizeHint"></div>
 
-    <div class="col">
-      <div class="label" style="margin:0 4px">Đấu với máy</div>
-      <div class="row">
-        <button class="btn main big" id="playEasy">Dễ</button>
-        <button class="btn main big" id="playMedium">Vừa</button>
-        <button class="btn main big" id="playHard">Khó</button>
-      </div>
-      <button class="btn big" id="playFriend">Chơi với bạn</button>
-    </div>
-    <div class="row" style="justify-content:center"><button class="icon-btn" id="soundHome" aria-label="Bật tắt âm thanh"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path class="wave" d="M15.5 8.5a5 5 0 010 7M18 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="mute" d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="soundText">Âm thanh: bật</span></button></div>
-    <div class="foot">XO Game · Play Game XO, Fun all day!</div>
+    <button class="btn main big" id="startBtn">Vào trận</button>
   </main>
 
   <!-- MÀN CHƠI -->

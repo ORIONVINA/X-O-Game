@@ -18,6 +18,9 @@ const CONFIG = {
   sheetUrl: 'https://script.google.com/macros/s/AKfycbx3pKc0ixYv2UJg0wSRFT0pqvSwxgi-Vw-AhOHT0OCMl9LvGGWyp_eruihiv543b839/exec',
   points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
+  // Nhạc nền: đặt file MP3 vào thư mục assets rồi ghi đường dẫn vào đây, ví dụ 'assets/nhac-teaser.mp3'. Để trống là không có nhạc.
+  music: { teaser: '', lobby: '' },
+  musicVolume: 0.35,
   botDelay: 450,
   growMax: 14,                   // bàn mở rộng: lớn nhất 14×14 để ô không quá nhỏ trên điện thoại
   keep: 3,                       // bàn 3×3: mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất
@@ -150,6 +153,45 @@ const Fx = {
     const el = $('pop'); el.textContent = text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.hidden = false;
     const a = el.animate([{ opacity: 0, transform: 'translate(-50%,-50%) scale(.4)' }, { opacity: 1, transform: 'translate(-50%,-90%) scale(1.1)', offset: .3 }, { opacity: 0, transform: 'translate(-50%,-160%) scale(1)' }], { duration: 900 });
     a.onfinish = () => { el.hidden = true; };
+  }
+};
+
+/* 4c. Music – nhạc nền cho teaser và sảnh (tắt khi vào trận) */
+const Music = {
+  el: null, cur: '',
+  play(name){
+    const src = CONFIG.music[name];
+    if (!src){ this.stop(); return; }
+    if (this.cur === name && this.el && !this.el.paused) return;
+    if (this.cur !== name){ this.stop(); this.cur = name; this.el = new Audio(src); this.el.loop = name !== 'teaser'; this.el.volume = CONFIG.musicVolume; }
+    if (Store.p.sound) this.el.play().catch(() => {});       // trình duyệt chỉ cho phát sau khi người chơi chạm màn hình
+  },
+  stop(){ if (this.el) this.el.pause(); this.el = null; this.cur = ''; },
+  sync(){ if (!this.el) return; if (Store.p.sound && !document.hidden) this.el.play().catch(() => {}); else this.el.pause(); }
+};
+
+/* 4d. Board – bảng vàng X vs O: số trận thắng của mỗi phe trong ngày, lấy từ Google Sheet */
+const Board = {
+  data: null, at: 0,
+  load(){
+    if (!CONFIG.sheetUrl || Date.now() - this.at < 60000) return;     // mỗi phút hỏi tối đa 1 lần
+    this.at = Date.now();
+    fetch(CONFIG.sheetUrl + '?board=1').then(r => r.json()).then(d => {
+      if (d && Number.isFinite(d.X) && Number.isFinite(d.O)){ this.data = { X: d.X, O: d.O }; this.show(); }
+    }).catch(() => {});
+  },
+  bump(team){ if (this.data && (team === 'X' || team === 'O')){ this.data[team]++; this.show(); } },   // mình vừa thắng: cộng ngay cho thấy
+  html(){
+    const d = this.data, total = d ? d.X + d.O : 0, px = total ? Math.round(d.X / total * 100) : 50;
+    const foot = !d ? '<div class="gold-foot one"><span>Phe nào sẽ dẫn đầu hôm nay?</span></div>'
+      : !total ? '<div class="gold-foot one"><span>Hôm nay chưa có trận thắng nào. Mở màn đi!</span></div>'
+      : `<div class="gold-foot"><span>Phe X · ${d.X} trận thắng</span><span>${d.O} trận thắng · Phe O</span></div>`;
+    return `<div class="gold-top"><img src="${PIECE.X}" alt="Phe X"><b class="gx">${px}%</b><span class="gold-title">Cuộc chiến X vs O hôm nay</span><b class="go">${100 - px}%</b><img src="${PIECE.O}" alt="Phe O"></div>
+      <div class="tug"><i style="width:${px}%"></i></div>${foot}`;
+  },
+  show(){
+    $('goldIntro').innerHTML = this.html();
+    const h = $('goldHome'); h.hidden = !this.data; if (this.data) h.innerHTML = this.html();   // ở sảnh: chỉ hiện khi đã có số thật
   }
 };
 
@@ -398,7 +440,7 @@ const Game = {
       }, CONFIG.botDelay);
     }
   },
-  snap(){ const { n, k, vanish, grow, arena, board, q, turn, over, result, score, moves, my } = this; return { n, k, vanish, grow, arena, board, q, turn, over, result, score, moves, host: my }; },
+  snap(){ const { n, k, vanish, grow, arena, level, board, q, turn, over, result, score, moves, my } = this; return { n, k, vanish, grow, arena, level, board, q, turn, over, result, score, moves, host: my }; },
   load(s){ const { host, ...rest } = s; Object.assign(this, rest); this.mode = 'online'; this.remote = true; this.my = other(host); },
 
   show(ev){
@@ -424,7 +466,7 @@ const Game = {
       const y = new Date(Date.now() - 864e5).toLocaleDateString('sv');
       p.streak = p.lastDay === y ? p.streak + 1 : 1; p.lastDay = d;
     }
-    p.plays++; p.points += gain; if (outcome === 'win') p.wins++;
+    p.plays++; p.points += gain; if (outcome === 'win'){ p.wins++; Board.bump(p.team); }
     Store.save();
     Track.send('van_dau', { mode: this.mode === 'bot' ? 'may_' + this.level : this.mode, arena: this.arena, size: (this.grow ? 'morong_' : '') + this.n + 'x' + this.n,
       result: outcome, winner: r.winner || '', moves: this.moves, seconds: Math.round((Date.now() - (this.t0 || Date.now())) / 1000), plays: p.plays, streak: p.streak });
@@ -450,7 +492,7 @@ const Arena = {
     const archery = Game.arena === 'archery';
     $('game').dataset.arena = Game.arena;
     $('board').classList.toggle('aiming', archery);
-    this.setSpin(archery && Game.mode === 'bot' && Game.level === 'hard' && !Game.over);
+    this.setSpin(archery && Game.level === 'hard' && !Game.over);          // mức Khó: bia quay, kể cả khi chơi với bạn
     if (!archery){ this.stop(); return; }
     $('nock').src = PIECE[Game.turn];
     if (!UI.ratioOk) $('bow').style.height = $('bow').offsetWidth * 150 / 240 + 'px';
@@ -479,7 +521,7 @@ const Arena = {
     const key = Game.moves + Game.turn + this.misses;      // mỗi lượt bốc gió một lần
     if (key !== this.windKey){
       this.windKey = key;
-      const max = Game.moves < 2 ? 0 : Game.mode === 'bot' ? CONFIG.wind[Game.level] : .5;
+      const max = Game.moves < 2 ? 0 : CONFIG.wind[Game.level] || .5;
       this.wind = Math.round((Math.random() * 2 - 1) * max * 10) / 10;
     }
     const w = this.wind, t = $('wind');
@@ -661,7 +703,8 @@ const Net = {
 
 /* 10. UI */
 const UI = {
-  opts: { arena: 'archery', size: '3-3' },
+  opts: { mode: 'bot', level: 'medium', arena: 'archery', size: '3-3' },
+  surveyAsked: false,
   toastTimer: 0,
   ratioOk: !!(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1')),
   toast(text, ms = 3200){ const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, ms); },
@@ -676,7 +719,15 @@ const UI = {
     document.body.dataset.team = t;
     $('meImg').src = PACK[t]; $('meTeam').textContent = 'Phe ' + t;
     $('meStats').textContent = `${p.points} điểm · ${p.wins} trận thắng` + (p.streak > 1 ? ` · 🔥 ${p.streak} ngày liên tiếp` : '');
-    this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size);
+    this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size); this.seg('optLevel', this.opts.level);
+    $('optMode').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === this.opts.mode));
+    const o = this.opts, archery = o.arena === 'archery';
+    $('levelHint').textContent = o.mode === 'bot'
+      ? ({ easy: 'Máy đánh thoải mái, hay bắn lệch.', medium: 'Máy biết tạo thế và chặn đường thắng.', hard: 'Máy tính trước nhiều nước.' + (archery ? ' Bia quay, chơi 2 mặt.' : '') })[o.level]
+      : archery ? ({ easy: 'Gió nhẹ.', medium: 'Gió mạnh hơn.', hard: 'Gió mạnh, bia quay và chơi 2 mặt.' })[o.level]
+      : 'Sân cổ điển khi chơi với bạn: mức độ không đổi luật.';
+    $('startBtn').textContent = o.mode === 'bot' ? 'Vào trận' : 'Vào trận · mời bạn';
+    Board.load(); Board.show(); if (Intro.done) Music.play('lobby');
     $('sizeHint').textContent = this.opts.size === '3-3' ? 'Mỗi người chỉ giữ 3 quân. Đặt quân thứ 4 thì quân cũ nhất biến mất.'
       : this.opts.size === '8-5-grow' ? 'Nối 5 quân để thắng. Có 4 quân vướng mép hoặc kín bàn thì bàn tự thêm 1 ô ở cả bốn phía. Không có hòa.'
       : 'Kín bàn mà chưa ai thắng thì bàn tự mở rộng. Không có hòa.';
@@ -686,10 +737,11 @@ const UI = {
   sound(){ const on = Store.p.sound; $('soundText').textContent = on ? 'Âm thanh: bật' : 'Âm thanh: tắt'; $('soundHome').classList.toggle('off', !on); $('soundGame').classList.toggle('off', !on); },
   startMatch(o){
     const [n, k, g] = this.opts.size.split('-'), grow = g === 'grow';
-    Game.setup(Object.assign({ n: +n, k: +k, grow, arena: this.opts.arena, remote: false, my: Store.p.team || 'X' }, o));
+    Game.setup(Object.assign({ n: +n, k: +k, grow, level: this.opts.level, arena: this.opts.arena, remote: false, my: Store.p.team || 'X' }, o));
     this.showGame(); Game.start();
   },
-  showGame(){ $('home').hidden = true; $('game').hidden = false; this.closeOverlays(); },
+  showGame(){ $('home').hidden = true; $('game').hidden = false; this.closeOverlays(); Music.stop(); },
+  openFriend(){ this.friendMenu(); $('friend').hidden = false; },
 
   names(){
     const my = Game.my, op = other(my);
@@ -756,7 +808,8 @@ const UI = {
   /* Khảo sát: tuổi, giới tính, chấm điểm Tayo X và Tayo O */
   ans: {},
   // Hiện ngay khi ván vừa xong (từ ván đầu tiên). Bấm "Để sau" thì ván sau hỏi lại, tối đa 2 lần bỏ qua.
-  surveyMaybe(){ const p = Store.p; if (p.survey === 'done' || (p.surveySkips || 0) >= 2 || !$('survey').hidden) return false; this.surveyOpen(); return true; },
+  // Mỗi lần vào game chỉ hỏi 1 lần, sau ván đầu tiên của lần đó. Ai đã trả lời rồi thì không hỏi lại.
+  surveyMaybe(){ if (Store.p.survey === 'done' || this.surveyAsked) return false; this.surveyAsked = true; this.surveyOpen(); return true; },
   surveyOpen(){ this.ans = {}; $('survey').querySelectorAll('.chips button').forEach(b => b.setAttribute('aria-pressed', 'false')); $('surveySend').disabled = true; $('survey').hidden = false; },
   surveyPick(q, v){
     this.ans[q] = v; const a = this.ans;
@@ -772,21 +825,55 @@ const UI = {
   }
 };
 
-/* Mở đầu: logo → quảng cáo Tayo X → Tayo O → cả cặp + nút Chơi ngay. Chạm để sang bước, có nút Bỏ qua. */
+/* Teaser mở đầu: chạm 1 lần để vào, rồi 6 cảnh tự chạy trong 15 giây, kết thúc ở nút "Chơi ngay". Không có nút bỏ qua. */
 const Intro = {
-  step: 0, timer: 0, done: false,
-  go(n){
-    clearTimeout(this.timer); this.step = n; $('intro').dataset.step = n;
-    if (n === 1 || n === 2){ Sfx.boom(); this.timer = setTimeout(() => this.go(n + 1), 2600); }
-    if (n === 3) Sfx.win();
+  step: 0, timers: [], done: false,
+  CUES: [0, 2000, 3500, 5000, 9000, 12000],        // mốc bắt đầu của cảnh 1..6 (mili giây)
+  at(ms, fn){ this.timers.push(setTimeout(fn, ms)); },
+  go(n){ this.step = n; $('intro').dataset.step = n; },
+  start(){
+    if (this.step !== 0 || this.done) return;
+    Music.play('teaser'); Board.show();
+    this.CUES.forEach((ms, i) => this.at(ms, () => { this.go(i + 1); this.cue(i + 1); }));
+    const bar = $('introBar'); bar.style.transition = 'width 15s linear'; requestAnimationFrame(() => { bar.style.width = '100%'; });
+  },
+  cue(n){
+    if (n <= 3) Sfx.boom();
+    if (n === 4) this.demo();
+    if (n === 5){ Sfx.win(); this.at(2150, () => Sfx.place('X')); }
+    if (n === 6) Sfx.join();
+  },
+  // cảnh 4: giương cung bắn quân X vào ô, rồi O bắn lại
+  demo(){
+    const st = $('tzScene'), cells = [...$('tzBoard').children], str = $('tzString'), nock = $('tzNock'), aim = $('tzAim'), arrow = $('tzArrow');
+    cells.forEach((c, i) => { const v = i === 1 ? 'O' : i === 4 ? 'X' : ''; c.className = v ? 'f' : ''; c.innerHTML = v ? `<img src="${PIECE[v]}" alt="">` : ''; });
+    const center = el => { const r = el.getBoundingClientRect(), s = st.getBoundingClientRect(); return [r.left + r.width / 2 - s.left, r.top + r.height / 2 - s.top]; };
+    const shoot = (i, p, delay, pullMs) => this.at(delay, () => {
+      const s0 = performance.now(), [tx, ty] = center(cells[i]);
+      nock.src = PIECE[p]; nock.style.visibility = ''; aim.hidden = false;
+      const fire = () => {
+        const [sx, sy] = center(nock);
+        str.setAttribute('points', '22,62 120,62 218,62'); nock.style.visibility = 'hidden'; nock.style.transform = 'translate(-50%,0)';
+        arrow.src = PIECE[p]; arrow.hidden = false; Sfx.shoot();
+        const a = arrow.animate([{ transform: `translate(${sx}px,${sy}px) scale(1) rotate(0deg)` }, { transform: `translate(${tx}px,${ty}px) scale(.4) rotate(360deg)` }], { duration: Fx.still() ? 1 : 420, easing: 'cubic-bezier(.3,.6,.5,1)' });
+        a.onfinish = a.oncancel = () => { arrow.hidden = true; aim.hidden = true; cells[i].className = 'f pop'; cells[i].innerHTML = `<img src="${PIECE[p]}" alt="">`; Sfx.place(p); };
+      };
+      const step = now => {
+        if (this.done || this.step !== 4) return;
+        const k = Math.min(1, (now - s0) / pullMs), wob = 5 * (1 - k);
+        str.setAttribute('points', `22,62 120,${62 + k * 42} 218,62`); nock.style.transform = `translate(-50%,${k * 62}%)`;
+        aim.style.transform = `translate(${tx + Math.sin(now / 140) * wob}px,${ty + Math.cos(now / 170) * wob}px)`;
+        if (k < 1) requestAnimationFrame(step); else fire();
+      };
+      requestAnimationFrame(step);
+    });
+    shoot(2, 'X', 150, 1200); shoot(6, 'O', 2100, 900);
   },
   end(how){
-    if (this.done) return; this.done = true; clearTimeout(this.timer);
-    $('intro').hidden = true; Track.send('mo_dau', { role: how });
+    if (this.done) return; this.done = true; this.timers.forEach(clearTimeout);
+    $('intro').hidden = true; Track.send('mo_dau', { role: how }); Music.play('lobby');
   },
-  wire(){
-    $('intro').onclick = e => { if (e.target.closest('#introSkip')) return this.end('bo_qua'); if (e.target.closest('#introPlay')) return this.end('xem_het'); if (this.step < 3) this.go(this.step + 1); };
-  }
+  wire(){ $('intro').onclick = e => { if (e.target.closest('#introPlay')) return this.end('xem_het'); this.start(); }; }
 };
 
 /* Gắn sự kiện */
@@ -794,13 +881,13 @@ function wire(){
   document.addEventListener('click', e => { if (e.target.closest('.btn, .team, .seg button')) Sfx.click(); }, true);
   $('optArena').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.arena = b.dataset.v; UI.home(); } };
   $('optSize').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.size = b.dataset.v; UI.home(); } };
-  $('playEasy').onclick = () => UI.startMatch({ mode: 'bot', level: 'easy' });
-  $('playMedium').onclick = () => UI.startMatch({ mode: 'bot', level: 'medium' });
-  $('playHard').onclick = () => UI.startMatch({ mode: 'bot', level: 'hard' });
-  $('playFriend').onclick = () => { UI.friendMenu(); $('friend').hidden = false; };
+  $('optMode').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.mode = b.dataset.v; Sfx.click(); UI.home(); } };
+  $('optLevel').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.level = b.dataset.v; UI.home(); } };
+  $('startBtn').onclick = () => { if (UI.opts.mode === 'bot') UI.startMatch({ mode: 'bot' }); else UI.openFriend(); };
   $('changeTeam').onclick = () => { $('teamPick').hidden = false; };
   $('teamPick').onclick = e => { const b = e.target.closest('.team'); if (!b) return; const first = !Store.p.team; Store.p.team = b.dataset.team; Store.save(); $('teamPick').hidden = true; Sfx.join(); UI.home(); Track.send(first ? 'chon_phe' : 'doi_phe', {}); };
-  const toggleSound = () => { Store.p.sound = !Store.p.sound; Store.save(); UI.sound(); Sfx.click(); };
+  const toggleSound = () => { Store.p.sound = !Store.p.sound; Store.save(); UI.sound(); Sfx.click(); Music.sync(); };
+  document.addEventListener('visibilitychange', () => Music.sync());
   $('soundHome').onclick = toggleSound; $('soundGame').onclick = toggleSound;
 
   $('hostRoom').onclick = () => { UI.toast('Đang tạo phòng…', 8000); Net.host(); };
@@ -829,13 +916,13 @@ function wire(){
 
   $('survey').onclick = e => { const b = e.target.closest('.chips button'); if (!b) return; const box = b.parentElement;
     box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); UI.surveyPick(box.dataset.q, b.dataset.v); };
-  $('surveySkip').onclick = () => { $('survey').hidden = true; Store.p.surveySkips = (Store.p.surveySkips || 0) + 1; Store.save(); };
+  $('surveySkip').onclick = () => { $('survey').hidden = true; };
   $('surveySend').onclick = () => UI.surveySend();
   addEventListener('pagehide', () => { Track.flush(); Net.send({ t: 'bye' }); });
 }
 
 /* Khởi động */
-Store.load(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush();
+Store.load(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush(); Board.show();
 (() => {  // vào bằng link mời: ?room=ABCD
   const q = new URLSearchParams(location.search), room = q.get('room');
   if (!room) return;

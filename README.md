@@ -3,7 +3,11 @@
 Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Link chơi là `index.html` ở thư mục gốc.
 
 ## Có gì trong game
-- **Mở đầu và quảng cáo sản phẩm:** logo → Tayo X → Tayo O → cả cặp và nút Chơi ngay. Chạm để sang bước, có nút Bỏ qua. Chữ quảng cáo sửa trong `index.html` (khối `#intro`).
+- **Teaser mở đầu 15 giây:** chạm để vào, rồi 6 cảnh tự chạy (đối đầu X vs O, Tayo X, Tayo O, giương cung bắn, nối quân thắng, bảng vàng và nút Chơi ngay). Không có nút bỏ qua. Chữ quảng cáo sửa trong `index.html` (khối `#intro`), mốc giây sửa ở `Intro.CUES` trong `js/app.js`.
+- **Sảnh 3 bước:** Hình thức chơi (Với máy, Với bạn) → Mức độ (Dễ, Vừa, Khó) → Sân và bàn cờ → Vào trận. Chơi với bạn thì mức độ đổi luật ở sân bắn cung: gió mạnh dần, mức Khó bia quay 2 mặt.
+- **Bảng vàng X vs O:** số trận thắng của mỗi phe trong ngày, làm mới mỗi ngày, đọc từ Google Sheet (tab `bang_vang`).
+- **Nhạc nền** cho teaser và sảnh: đặt file MP3 vào `assets/` rồi ghi đường dẫn vào `CONFIG.music` trong `js/app.js`.
+- **Khảo sát:** mỗi lần vào game hỏi 1 lần sau ván đầu; ai đã trả lời thì không hỏi lại.
 - **Chọn phe X hoặc O.** Giao diện đổi màu theo phe, thắng thì cộng điểm cho phe.
 - **Sân bắn cung (sân chính):** góc nhìn người bắn, bàn cờ dựng ở xa. Chạm giữ rồi kéo xuống để giương cung, kéo trái phải canh hướng, kéo sâu để bắn cao, thả tay để bắn. Có gió và tay rung nhẹ. Ra ngoài hoặc trúng ô đã có quân là mất lượt.
 - **Sân cổ điển:** chạm để đặt quân.
