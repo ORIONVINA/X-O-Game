@@ -15,7 +15,7 @@
 /* 1. CONFIG */
 const CONFIG = {
   // Dán link Apps Script vào đây để data chảy về Google Sheet (xem tools/HUONG-DAN-GOOGLE-SHEET.md)
-  sheetUrl: '',
+  sheetUrl: 'https://script.google.com/macros/s/AKfycbx3pKc0ixYv2UJg0wSRFT0pqvSwxgi-Vw-AhOHT0OCMl9LvGGWyp_eruihiv543b839/exec',
   points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
   botDelay: 450,
