@@ -3,7 +3,7 @@
 Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Link chơi là `index.html` ở thư mục gốc.
 
 ## Có gì trong game
-- **Teaser mở đầu 15 giây:** chạm để vào, rồi 6 cảnh tự chạy (đối đầu X vs O, Tayo X, Tayo O, giương cung bắn, nối quân thắng, bảng vàng và nút Chơi ngay). Không có nút bỏ qua. Chữ quảng cáo sửa trong `index.html` (khối `#intro`), mốc giây sửa ở `Intro.CUES` trong `js/app.js`.
+- **Teaser mở đầu 15 giây:** chạm để vào, rồi 6 cảnh tự chạy (đối đầu X vs O, Tayo X, Tayo O, giương cung bắn, nối quân thắng, bảng vàng và nút Chơi ngay). Có nút "Bỏ qua" ở góc trên. Chữ quảng cáo sửa trong `index.html` (khối `#intro`), mốc giây sửa ở `Intro.CUES` trong `js/app.js`.
 - **Sảnh 3 bước:** Hình thức chơi (Với máy, Với bạn) → Mức độ (Dễ, Vừa, Khó) → Sân và bàn cờ → Vào trận. Chơi với bạn thì mức độ đổi luật ở sân bắn cung: gió mạnh dần, mức Khó bia quay 2 mặt.
 - **Bảng vàng X vs O:** số trận thắng của mỗi phe trong ngày, làm mới mỗi ngày, đọc từ Google Sheet (tab `bang_vang`).
 - **Nhạc nền** cho teaser và sảnh: đặt file MP3 vào `assets/` rồi ghi đường dẫn vào `CONFIG.music` trong `js/app.js`.

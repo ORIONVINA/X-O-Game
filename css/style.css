@@ -194,6 +194,9 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 .ad .i-line{animation:rise .4s ease-out .55s both}
 .ad-x h2{text-shadow:0 0 18px #1e9bff,0 4px 0 #062a8c} .ad-x .i-pack{filter:drop-shadow(0 0 30px #1e9bff)} .ad-x .i-flavor{background:linear-gradient(#2aa6ff,#0b4fc4);box-shadow:0 0 18px #1e9bff}
 .ad-o h2{text-shadow:0 0 18px #ff8a1e,0 4px 0 #8a2606} .ad-o .i-pack{filter:drop-shadow(0 0 30px #ff8a1e)} .ad-o .i-flavor{background:linear-gradient(#ffb02e,#e2540f);box-shadow:0 0 18px #ff8a1e}
+/* nút bỏ qua teaser: chỉ hiện khi teaser đang chạy (cảnh 1 đến 5) */
+.i-skip{display:none;position:absolute;right:12px;top:max(10px,env(safe-area-inset-top));z-index:6;color:#fff;font:inherit;font-weight:800;font-size:14px;background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.65);border-radius:999px;padding:8px 16px;cursor:pointer}
+#intro:not([data-step="0"]):not([data-step="6"]) .i-skip{display:block}
 /* nền chia đôi X | O cho cảnh đối đầu và cảnh bảng vàng */
 .i-half{position:absolute;inset:0;display:none;background:center/cover no-repeat}
 #intro[data-step="1"] .i-half,#intro[data-step="6"] .i-half{display:block}

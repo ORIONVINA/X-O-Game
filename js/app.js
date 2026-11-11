@@ -721,11 +721,7 @@ const UI = {
     $('meStats').textContent = `${p.points} điểm · ${p.wins} trận thắng` + (p.streak > 1 ? ` · 🔥 ${p.streak} ngày liên tiếp` : '');
     this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size); this.seg('optLevel', this.opts.level);
     $('optMode').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === this.opts.mode));
-    const o = this.opts, archery = o.arena === 'archery';
-    $('levelHint').textContent = o.mode === 'bot'
-      ? ({ easy: 'Máy đánh thoải mái, hay bắn lệch.', medium: 'Máy biết tạo thế và chặn đường thắng.', hard: 'Máy tính trước nhiều nước.' + (archery ? ' Bia quay, chơi 2 mặt.' : '') })[o.level]
-      : archery ? ({ easy: 'Gió nhẹ.', medium: 'Gió mạnh hơn.', hard: 'Gió mạnh, bia quay và chơi 2 mặt.' })[o.level]
-      : 'Sân cổ điển khi chơi với bạn: mức độ không đổi luật.';
+    const o = this.opts;
     $('startBtn').textContent = o.mode === 'bot' ? 'Vào trận' : 'Vào trận · mời bạn';
     Board.load(); Board.show(); if (Intro.done) Music.play('lobby');
     $('sizeHint').textContent = this.opts.size === '3-3' ? 'Mỗi người chỉ giữ 3 quân. Đặt quân thứ 4 thì quân cũ nhất biến mất.'
@@ -825,7 +821,7 @@ const UI = {
   }
 };
 
-/* Teaser mở đầu: chạm 1 lần để vào, rồi 6 cảnh tự chạy trong 15 giây, kết thúc ở nút "Chơi ngay". Không có nút bỏ qua. */
+/* Teaser mở đầu: chạm 1 lần để vào, rồi 6 cảnh tự chạy trong 15 giây, kết thúc ở nút "Chơi ngay". Có nút "Bỏ qua" ở góc trên. */
 const Intro = {
   step: 0, timers: [], done: false,
   CUES: [0, 2000, 3500, 5000, 9000, 12000],        // mốc bắt đầu của cảnh 1..6 (mili giây)
@@ -873,7 +869,7 @@ const Intro = {
     if (this.done) return; this.done = true; this.timers.forEach(clearTimeout);
     $('intro').hidden = true; Track.send('mo_dau', { role: how }); Music.play('lobby');
   },
-  wire(){ $('intro').onclick = e => { if (e.target.closest('#introPlay')) return this.end('xem_het'); this.start(); }; }
+  wire(){ $('intro').onclick = e => { if (e.target.closest('#introSkip')) return this.end('bo_qua'); if (e.target.closest('#introPlay')) return this.end('xem_het'); this.start(); }; }
 };
 
 /* Gắn sự kiện */
