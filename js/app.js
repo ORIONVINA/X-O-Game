@@ -63,13 +63,16 @@ const Track = {
     p.queue.push(row); if (p.queue.length > 200) p.queue.shift();
     Store.save(); this.flush();
   },
+  busy: false,
   flush(){
     const p = Store.p;
-    if (!CONFIG.sheetUrl || !p.queue.length) return;
+    if (!CONFIG.sheetUrl || !p.queue.length || this.busy) return;   // đang gửi dở thì chờ, tránh gửi trùng
+    this.busy = true;
     const batch = p.queue.slice();
     // text/plain + no-cors: cách gửi mà Apps Script nhận được từ web tĩnh
     fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(batch), keepalive: true })
-      .then(() => { p.queue = p.queue.slice(batch.length); Store.save(); }).catch(() => {});
+      .then(() => { p.queue = p.queue.slice(batch.length); Store.save(); this.busy = false; this.flush(); })
+      .catch(() => { this.busy = false; });      // lỗi mạng: giữ lại, lần sau gửi bù
   }
 };
 
