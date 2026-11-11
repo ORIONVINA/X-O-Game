@@ -799,7 +799,7 @@ function wire(){
   $('playHard').onclick = () => UI.startMatch({ mode: 'bot', level: 'hard' });
   $('playFriend').onclick = () => { UI.friendMenu(); $('friend').hidden = false; };
   $('changeTeam').onclick = () => { $('teamPick').hidden = false; };
-  $('teamPick').onclick = e => { const b = e.target.closest('.team'); if (!b) return;   // chỉ tính khi bấm đúng thẻ phe const first = !Store.p.team; Store.p.team = b.dataset.team; Store.save(); $('teamPick').hidden = true; Sfx.join(); UI.home(); Track.send(first ? 'chon_phe' : 'doi_phe', {}); };
+  $('teamPick').onclick = e => { const b = e.target.closest('.team'); if (!b) return; const first = !Store.p.team; Store.p.team = b.dataset.team; Store.save(); $('teamPick').hidden = true; Sfx.join(); UI.home(); Track.send(first ? 'chon_phe' : 'doi_phe', {}); };
   const toggleSound = () => { Store.p.sound = !Store.p.sound; Store.save(); UI.sound(); Sfx.click(); };
   $('soundHome').onclick = toggleSound; $('soundGame').onclick = toggleSound;
 
