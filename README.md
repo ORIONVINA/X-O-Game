@@ -1,20 +1,30 @@
-# X-O Game – Tic Tac Toe
+# XO Game
 
-Web game Xo Caro 1 trang (HTML/CSS/JS thuần, không cần build).
+Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Link chơi là `index.html` ở thư mục gốc.
 
-## Tính năng
-- 2 người chơi / Đấu máy (Dễ, Khó – minimax bất bại ở 3×3)
-- Bàn 3×3, 5×5, 7×7
-- Bảng điểm lưu trên trình duyệt, Đi lại, Ván mới
+## Có gì trong game
+- **Mở đầu và quảng cáo sản phẩm:** logo → Tayo X → Tayo O → cả cặp và nút Chơi ngay. Chạm để sang bước, có nút Bỏ qua. Chữ quảng cáo sửa trong `index.html` (khối `#intro`).
+- **Chọn phe X hoặc O.** Giao diện đổi màu theo phe, thắng thì cộng điểm cho phe.
+- **Sân bắn cung (sân chính):** góc nhìn người bắn, bàn cờ dựng ở xa. Chạm giữ rồi kéo xuống để giương cung, kéo trái phải canh hướng, kéo sâu để bắn cao, thả tay để bắn. Có gió và tay rung nhẹ. Ra ngoài hoặc trúng ô đã có quân là mất lượt.
+- **Sân cổ điển:** chạm để đặt quân.
+- **Không có hòa:** bàn 3×3 mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất. Bàn 5×5, 7×7 kín bàn thì tự thêm 1 ô ở cả bốn phía.
+- **Bàn 8×8 mở rộng:** nối 5 quân để thắng. Có 4 quân liên tiếp vướng mép (hoặc kín bàn) thì bàn tự mở rộng.
+- **Chơi với máy** (Dễ, Vừa, Khó; cấp Khó tính trước nhiều nước, và ở sân bắn cung thì bia quay tròn, chơi được cả 2 mặt) hoặc **chơi với bạn**: mời qua link, nhập mã phòng 4 ký tự, hoặc chơi chung 1 máy.
+- **Màn thắng:** chữ X hoặc O của bên thắng phóng to, rồi thu nhỏ bay vào gói bánh của phe đó, sau đó hiện kết quả.
+- **Âm thanh và hiệu ứng:** tiếng đặt quân, bắn cung, thắng thua; pháo giấy, tia văng, rung bàn.
+- **Khảo sát sau ván đầu:** nhóm tuổi, giới tính, chấm điểm Tayo X và Tayo O (5 emoji).
+- **Data về Google Sheet:** xem `tools/HUONG-DAN-GOOGLE-SHEET.md`.
 
-## Cấu trúc code (trong `index.html`)
-1. `CONFIG` – tuỳ chỉnh luật, tên người chơi
-2. `Rules` – luật thắng/hòa cho mọi kích thước bàn
-3. `AI` – các bot; thêm cấp độ mới vào `AI.bots`
-4. `Store` – lưu điểm
-5. `Game` – trạng thái ván, lịch sử nước đi
-6. `UI` – vẽ bàn cờ
-7. `Events` – hook mở rộng: `Events.on('win', fn)`
+## Thư mục
+| Đường dẫn | Nội dung |
+|---|---|
+| `index.html` | Khung trang, các màn hình |
+| `css/style.css` | Giao diện. Màu chỉnh ở `:root` đầu file |
+| `js/app.js` | Toàn bộ logic. Chỉnh nhanh ở `CONFIG` đầu file |
+| `assets/` | Logo, slogan, quân X/O. Đổi hình: thay file cùng tên |
+| `vendor/peerjs.min.js` | Thư viện kết nối 2 máy (PeerJS, giấy phép MIT) |
+| `tools/` | Code nhận data cho Google Sheet và hướng dẫn |
 
-## Chạy
-Mở `index.html` bằng trình duyệt, hoặc bật GitHub Pages (branch `main`, thư mục `/root`).
+## Chơi với bạn hoạt động thế nào
+Hai máy nối trực tiếp với nhau qua PeerJS, dùng máy chủ ghép nối miễn phí của PeerJS. Không cần máy chủ riêng.
+Với một số mạng công ty hoặc mạng di động chặn kết nối trực tiếp, phòng có thể không vào được; khi đó dùng "Chơi chung 1 máy".
