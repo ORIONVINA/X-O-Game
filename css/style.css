@@ -219,6 +219,7 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 
 /* Lớp phủ */
 .overlay{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.overlay#survey{z-index:42}   /* khảo sát nằm trên bảng kết quả */
 .sheet{width:100%;max-width:440px;max-height:100%;overflow:auto;color:var(--text);border-radius:24px;padding:20px 18px;display:flex;flex-direction:column;gap:12px;
   background:linear-gradient(170deg,color-mix(in srgb,var(--tile) 85%,#fff 6%),#02030c);border:2px solid var(--neon);
   box-shadow:0 0 40px rgba(var(--neon-rgb),.8),inset 0 0 30px rgba(var(--neon-rgb),.2);animation:rise .3s cubic-bezier(.3,1.4,.5,1)}
