@@ -434,7 +434,7 @@ const Game = {
       UI.winFx(r.winner); Sfx.boom();
       if (outcome === 'lose') setTimeout(() => Sfx.lose(), 500); else { setTimeout(() => Sfx.win(), 350); Fx.confetti(); }
     }, 500);
-    setTimeout(() => { if (Game.result === r) UI.result(outcome, r, gain); }, 2900);
+    setTimeout(() => { if (Game.result === r){ UI.result(outcome, r, gain); if (!$('game').hidden) UI.surveyMaybe(); } }, 2900);
   }
 };
 
@@ -754,7 +754,8 @@ const UI = {
 
   /* Khảo sát: tuổi, giới tính, chấm điểm Tayo X và Tayo O */
   ans: {},
-  surveyMaybe(){ const p = Store.p; if (p.survey === 'done' || $('survey').hidden === false) return false; if (p.plays === 1 || p.plays === 4){ this.surveyOpen(); return true; } return false; },
+  // Hiện ngay khi ván vừa xong (từ ván đầu tiên). Bấm "Để sau" thì ván sau hỏi lại, tối đa 2 lần bỏ qua.
+  surveyMaybe(){ const p = Store.p; if (p.survey === 'done' || (p.surveySkips || 0) >= 2 || !$('survey').hidden) return false; this.surveyOpen(); return true; },
   surveyOpen(){ this.ans = {}; $('survey').querySelectorAll('.chips button').forEach(b => b.setAttribute('aria-pressed', 'false')); $('surveySend').disabled = true; $('survey').hidden = false; },
   surveyPick(q, v){
     this.ans[q] = v; const a = this.ans;
@@ -813,12 +814,12 @@ function wire(){
   };
   $('copyRoom').onclick = async () => { try { await navigator.clipboard.writeText(Net.link()); UI.toast('Đã sao chép link.'); } catch { UI.toast('Giữ vào link ở trên để sao chép nha.'); } };
 
-  $('back').onclick = () => { if (Game.mode === 'online') Net.close(true); UI.home(); UI.surveyMaybe(); };
+  $('back').onclick = () => { if (Game.mode === 'online') Net.close(true); UI.home(); };
   $('undo').onclick = () => Game.undo();
   const again = () => { $('result').hidden = true; if (Game.remote) Net.send({ t: 'again' }); else Game.start(); };
   $('restart').onclick = again;
-  $('resultAgain').onclick = () => { again(); UI.surveyMaybe(); };
-  $('resultHome').onclick = () => { if (Game.mode === 'online') Net.close(true); UI.home(); UI.surveyMaybe(); };
+  $('resultAgain').onclick = again;
+  $('resultHome').onclick = () => { if (Game.mode === 'online') Net.close(true); UI.home(); };
   const sc = $('scene');
   sc.addEventListener('pointerdown', e => { if (Game.arena === 'archery'){ e.preventDefault(); Arena.down(e); } });
   sc.addEventListener('pointermove', e => Arena.move(e));
@@ -827,7 +828,7 @@ function wire(){
 
   $('survey').onclick = e => { const b = e.target.closest('.chips button'); if (!b) return; const box = b.parentElement;
     box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); UI.surveyPick(box.dataset.q, b.dataset.v); };
-  $('surveySkip').onclick = () => { $('survey').hidden = true; };
+  $('surveySkip').onclick = () => { $('survey').hidden = true; Store.p.surveySkips = (Store.p.surveySkips || 0) + 1; Store.save(); };
   $('surveySend').onclick = () => UI.surveySend();
   addEventListener('pagehide', () => { Track.flush(); Net.send({ t: 'bye' }); });
 }
