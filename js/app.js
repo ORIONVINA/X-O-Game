@@ -16,7 +16,7 @@
 const CONFIG = {
   // Dán link Apps Script vào đây để data chảy về Google Sheet (xem tools/HUONG-DAN-GOOGLE-SHEET.md)
   sheetUrl: '',
-  points: { easy: 5, hard: 10, online: 10, survey: 20 },
+  points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
   botDelay: 450,
   growMax: 14,                   // bàn mở rộng: lớn nhất 14×14 để ô không quá nhỏ trên điện thoại
@@ -24,7 +24,9 @@ const CONFIG = {
   storageKey: 'xo_profile_v2',
   roomPrefix: 'tayoxo-',
   peerOptions: window.XO_PEER_OPTIONS || {},
-  aim: { easy: 0.65, hard: 0.9 } // độ chính xác của máy ở sân bắn cung
+  aim: { easy: 0.65, medium: 0.9, hard: 0.97 },   // độ chính xác của máy ở sân bắn cung
+  wind: { easy: 0.35, medium: 0.6, hard: 0.8 },    // gió mạnh nhất (tính theo ô)
+  spinSeconds: 7                                    // sân bắn cung cấp Khó: bia quay 1 vòng mất bấy nhiêu giây
 };
 const PIECE = { X: 'assets/x.webp', O: 'assets/o.webp' };
 const PACK = { X: 'assets/pack-x.webp', O: 'assets/pack-o.webp' };
@@ -188,13 +190,14 @@ const Rules = {
 const AI = {
   move(g, level){
     if (level === 'easy' && Math.random() < 0.6) return this.random(g);
-    return g.vanish ? this.vanish(g) : this.heuristic(g);
+    if (g.vanish) return this.vanish(g, level === 'hard' ? 10 : 6);       // Khó: nhìn xa hơn 4 nước
+    return level === 'hard' ? this.deep(g) : this.heuristic(g);
   },
   random(g){ const e = Rules.empty(g.board); return e[Math.floor(Math.random() * e.length)]; },
 
   // Bàn 3×3 "không hòa": tìm kiếm có giới hạn độ sâu, tính cả quân sắp biến mất
-  vanish(g){
-    const me = g.turn, b = [...g.board], q = { X: [...g.q.X], O: [...g.q.O] }, DEPTH = 6;
+  vanish(g, DEPTH = 6){
+    const me = g.turn, b = [...g.board], q = { X: [...g.q.X], O: [...g.q.O] };
     const wins = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
     const won = p => wins.some(l => l.every(i => b[i] === p));
     const put = (i, p) => { b[i] = p; q[p].push(i); let rm = null; if (q[p].length > CONFIG.keep){ rm = q[p].shift(); b[rm] = null; } return rm; };
@@ -223,29 +226,94 @@ const AI = {
     return bests[Math.floor(Math.random() * bests.length)];
   },
 
-  // Chấm điểm theo chuỗi cho bàn lớn (5×5, 7×7)
+  // Giá trị của việc đặt quân p vào ô i (bàn lớn): chuỗi càng dài, càng thoáng 2 đầu thì điểm càng cao
+  lineVal(board, n, k, i, p){
+    const r = Math.floor(i / n), c = i % n; let total = 0;
+    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]){
+      let cnt = 1, open = 0;
+      for (const s of [1, -1]){
+        let rr = r + dr * s, cc = c + dc * s;
+        while (rr >= 0 && rr < n && cc >= 0 && cc < n && board[rr * n + cc] === p){ cnt++; rr += dr * s; cc += dc * s; }
+        if (rr >= 0 && rr < n && cc >= 0 && cc < n && !board[rr * n + cc]) open++;
+      }
+      if (cnt >= k) total += 1e6; else total += Math.pow(10, cnt) * (open || 0.1);
+    }
+    return total;
+  },
+  center(n, i){ return n / 2 - Math.abs(Math.floor(i / n) - (n - 1) / 2) - Math.abs(i % n - (n - 1) / 2) * 0.5; },
+  // Cấp Vừa: chấm điểm từng ô, có chút ngẫu nhiên
   heuristic(g){
     const { n, k, board } = g, me = g.turn, op = other(me);
-    const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
-    const lineVal = (i, p) => {
-      const r = Math.floor(i / n), c = i % n; let total = 0;
-      for (const [dr, dc] of dirs){
-        let cnt = 1, open = 0;
-        for (const s of [1, -1]){
-          let rr = r + dr * s, cc = c + dc * s;
-          while (rr >= 0 && rr < n && cc >= 0 && cc < n && board[rr * n + cc] === p){ cnt++; rr += dr * s; cc += dc * s; }
-          if (rr >= 0 && rr < n && cc >= 0 && cc < n && !board[rr * n + cc]) open++;
-        }
-        if (cnt >= k) total += 1e6; else total += Math.pow(10, cnt) * (open || 0.1);
-      }
-      return total;
-    };
     let best = null, bestV = -1;
     for (const i of Rules.empty(board)){
-      const center = n / 2 - Math.abs(Math.floor(i / n) - (n - 1) / 2) - Math.abs(i % n - (n - 1) / 2) * 0.5;
-      const v = lineVal(i, me) * 1.1 + lineVal(i, op) + center + Math.random() * .5;
+      const v = this.lineVal(board, n, k, i, me) * 1.1 + this.lineVal(board, n, k, i, op) + this.center(n, i) + Math.random() * .5;
       if (v > bestV){ bestV = v; best = i; }
     }
+    return best;
+  },
+  // Điểm theo "cửa sổ" k ô liên tiếp chứa ô i mà chưa bị đối thủ chặn: bắt được cả chuỗi đứt quãng (X X _ X)
+  windowVal(board, n, k, i, p){
+    const r = Math.floor(i / n), c = i % n; let total = 0;
+    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) for (let off = 1 - k; off <= 0; off++){
+      let own = 0, ok = true;
+      for (let t = 0; t < k; t++){
+        const rr = r + (off + t) * dr, cc = c + (off + t) * dc;
+        if (rr < 0 || cc < 0 || rr >= n || cc >= n){ ok = false; break; }
+        const v = rr === r && cc === c ? p : board[rr * n + cc];
+        if (v === p) own++; else if (v){ ok = false; break; }
+      }
+      if (ok) total += own >= k ? 1e6 : Math.pow(7, own - 1);
+    }
+    return total;
+  },
+  // các ô mà p đặt vào là thắng ngay
+  winsFor(board, n, k, p, cells){ return cells.filter(i => !board[i] && this.lineVal(board, n, k, i, p) >= 1e6); },
+  // Chấm cả thế cờ theo góc nhìn của `me`: cộng các cửa sổ chỉ có quân mình, trừ các cửa sổ chỉ có quân đối thủ
+  evalBoard(b, n, k, me){
+    let total = 0;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]){
+      const er = r + (k - 1) * dr, ec = c + (k - 1) * dc;
+      if (er < 0 || er >= n || ec < 0 || ec >= n) continue;
+      let mine = 0, theirs = 0;
+      for (let t = 0; t < k; t++){ const v = b[(r + t * dr) * n + c + t * dc]; if (v === me) mine++; else if (v) theirs++; }
+      if (mine && !theirs) total += Math.pow(8, mine - 1); else if (theirs && !mine) total -= Math.pow(8, theirs - 1) * 1.05;
+    }
+    return total;
+  },
+  // Cấp Khó (bàn lớn): tính trước 4 nước (mình, đối thủ, mình, đối thủ), mỗi lượt xét 8 nước hứa hẹn nhất
+  deep(g){
+    const { n, k } = g, me = g.turn, b = [...g.board], DEPTH = 4, WIDE = 8;
+    const cand = () => {
+      const out = [];
+      for (let i = 0; i < b.length; i++){
+        if (b[i]) continue; const r = Math.floor(i / n), c = i % n; let ok = false;
+        for (let dr = -2; dr <= 2 && !ok; dr++) for (let dc = -2; dc <= 2; dc++){ const rr = r + dr, cc = c + dc; if (rr >= 0 && cc >= 0 && rr < n && cc < n && b[rr * n + cc]){ ok = true; break; } }
+        if (ok) out.push(i);
+      }
+      return out.length ? out : [Math.floor(n / 2) * n + Math.floor(n / 2)];
+    };
+    const order = (cells, p) => { const o = other(p);
+      return cells.map(i => ({ i, v: this.windowVal(b, n, k, i, p) * 1.1 + this.windowVal(b, n, k, i, o) + this.center(n, i) * .3 })).sort((x, y) => y.v - x.v); };
+    const search = (p, depth, alpha, beta) => {
+      const cells = cand(), mine = p === me;
+      if (this.winsFor(b, n, k, p, cells).length) return mine ? 1e9 + depth : -1e9 - depth;      // người đang đi thắng ngay
+      if (depth === 0) return this.evalBoard(b, n, k, me);
+      const must = this.winsFor(b, n, k, other(p), cells);                                        // buộc phải chặn
+      const moves = must.length ? must.slice(0, 2) : order(cells, p).slice(0, WIDE).map(x => x.i);
+      let best = mine ? -Infinity : Infinity;
+      for (const i of moves){
+        b[i] = p; const v = search(other(p), depth - 1, alpha, beta); b[i] = null;
+        if (mine){ if (v > best) best = v; if (v > alpha) alpha = v; } else { if (v < best) best = v; if (v < beta) beta = v; }
+        if (beta <= alpha) break;
+      }
+      return best;
+    };
+    const cells = cand();
+    let w = this.winsFor(b, n, k, me, cells); if (w.length) return w[0];
+    w = this.winsFor(b, n, k, other(me), cells);
+    const moves = w.length ? w : order(cells, me).slice(0, WIDE + 2).map(x => x.i);
+    let best = moves[0], bestV = -Infinity;
+    for (const i of moves){ b[i] = me; const v = search(other(me), DEPTH - 1, -Infinity, Infinity); b[i] = null; if (v > bestV){ bestV = v; best = i; } }
     return best;
   }
 };
@@ -369,24 +437,45 @@ const Game = {
 
 /* 8. Arena – sân bắn cung, góc nhìn người bắn.
    Bàn cờ dựng ở xa. Chạm giữ rồi kéo xuống để giương cung: kéo trái/phải canh hướng, kéo càng sâu mũi tên càng lên cao.
-   Tay rung nhẹ và có gió, nên phải canh rồi mới thả. Trúng ô trống thì đặt quân; ra ngoài hoặc trúng ô đã có quân là mất lượt. */
+   Tay rung nhẹ và có gió, nên phải canh rồi mới thả. Trúng ô trống thì đặt quân; ra ngoài hoặc trúng ô đã có quân là mất lượt.
+   Cấp Khó: bia quay tròn quanh trục đứng và chơi được cả 2 mặt. Mặt sau là chính bàn cờ đó nhìn từ phía sau (đảo trái phải);
+   bia quay nghiêng thì hẹp lại, quay ngang cạnh thì bắn không trúng. Mũi tên bay mất nửa giây nên phải bắn đón. */
 const Arena = {
   busy: false, on: false, drag: null, raf: 0, u: .5, v: .5, pull: 0, wind: 0, windKey: '', misses: 0,
-  el(){ return { scene: $('scene'), bow: $('bow'), string: $('bowString'), nock: $('nock'), aim: $('aim'), board: $('board') }; },
+  spin: false, spin0: 0, spinRaf: 0,
   sync(){
     const archery = Game.arena === 'archery';
     $('game').dataset.arena = Game.arena;
     $('board').classList.toggle('aiming', archery);
+    this.setSpin(archery && Game.mode === 'bot' && Game.level === 'hard' && !Game.over);
     if (!archery){ this.stop(); return; }
     $('nock').src = PIECE[Game.turn];
     if (!Game.over && Game.canAct()) this.enable(); else if (!this.busy) this.stop();
+  },
+  // --- bia xoay ---
+  setSpin(on){
+    if (on === this.spin) return;
+    this.spin = on; cancelAnimationFrame(this.spinRaf);
+    const w = $('boardWrap');
+    if (!on){ w.style.transform = ''; w.classList.remove('back'); return; }
+    this.spin0 = performance.now();
+    const loop = now => { if (!this.spin) return; const c = this.cos(now); w.style.transform = `rotateY(${this.deg(now)}deg)`; w.classList.toggle('back', c < 0); this.spinRaf = requestAnimationFrame(loop); };
+    this.spinRaf = requestAnimationFrame(loop);
+  },
+  deg(now){ return this.spin ? ((now - this.spin0) / 1000 * 360 / CONFIG.spinSeconds) % 360 : 0; },
+  cos(now){ return Math.cos(this.deg(now) * Math.PI / 180); },
+  // --- khung ngắm cố định trên màn hình (vị trí bàn cờ khi chưa xoay) ---
+  ref(){
+    const sc = $('scene'), r = sc.getBoundingClientRect(), w = $('boardWrap'), b = $('board');
+    const x = sc.clientLeft + w.offsetLeft + b.offsetLeft, y = sc.clientTop + w.offsetTop + b.offsetTop;
+    return { x, y, left: r.left + x, top: r.top + y, width: b.offsetWidth, height: b.offsetHeight };
   },
   enable(){
     this.on = true;
     const key = Game.moves + Game.turn + this.misses;      // mỗi lượt bốc gió một lần
     if (key !== this.windKey){
       this.windKey = key;
-      const max = Game.moves < 2 ? 0 : Game.mode === 'bot' ? (Game.level === 'easy' ? .35 : .6) : .5;
+      const max = Game.moves < 2 ? 0 : Game.mode === 'bot' ? CONFIG.wind[Game.level] : .5;
       this.wind = Math.round((Math.random() * 2 - 1) * max * 10) / 10;
     }
     const w = this.wind, t = $('wind');
@@ -396,13 +485,17 @@ const Arena = {
   stop(){ this.on = false; this.drag = null; cancelAnimationFrame(this.raf); $('aim').hidden = true; $('wind').hidden = true; this.pose(.5, 0); },
   // vẽ cung: xoay theo hướng ngắm, dây căng theo lực kéo
   pose(u, pull){
-    const { bow, string, nock } = this.el(), y = 62 + pull * 66;
+    const bow = $('bow'), nock = $('nock'), y = 62 + pull * 66;
     bow.style.transform = `rotate(${(u - .5) * 46}deg)`;
-    string.setAttribute('points', `22,62 120,${y} 218,62`);
+    $('bowString').setAttribute('points', `22,62 120,${y} 218,62`);
     nock.style.transform = `translate(-50%, ${y * bow.clientWidth / 240 - nock.clientHeight * .78}px)`;
   },
   sway(now){ const a = (.16 + Math.min(.2, Game.moves * .015)) / Game.n, t = now / 1000; return [a * Math.sin(t * 2.3), a * Math.sin(t * 1.7 + 1)]; },
-  aimAt(u, v){ const b = $('board'); $('aim').style.setProperty('--s', Math.max(18, Math.min(38, b.offsetWidth / Game.n * .85)) + 'px'); $('aim').style.transform = `translate(${u * b.offsetWidth}px,${v * b.offsetHeight}px)`; },
+  aimAt(u, v){
+    const f = this.ref(), aim = $('aim');
+    aim.style.setProperty('--s', Math.max(18, Math.min(38, f.width / Game.n * .85)) + 'px');
+    aim.style.transform = `translate(${f.x + u * f.width}px,${f.y + v * f.height}px)`;
+  },
   down(e){
     if (!this.on || this.busy || !Game.canAct()) return;
     this.drag = { x: e.clientX, y: e.clientY }; this.pull = 0; this.u = .5;
@@ -430,28 +523,38 @@ const Arena = {
     const [sx, sy] = this.sway(performance.now());
     this.fire(this.u + sx + this.wind / Game.n, this.v + sy);
   },
-  // ô nằm dưới điểm rơi; -1 nếu ra ngoài bàn
-  cellAt(u, v){
-    if (u < 0 || u > 1 || v < 0 || v > 1) return -1;
-    const b = $('board').getBoundingClientRect(), x = b.left + u * b.width, y = b.top + v * b.height;
+  // Điểm (u, v) trên màn hình rơi vào ô nào của bàn cờ, tính cả góc bia đang xoay. -1 nếu trượt.
+  cellAt(u, v, now){
+    const c = this.cos(now);
+    if (Math.abs(c) < .15) return -1;                       // bia đang quay ngang cạnh
+    const bu = .5 + (u - .5) / c;                           // c âm = mặt sau = đảo trái phải
+    if (bu < 0 || bu > 1 || v < 0 || v > 1) return -1;
+    const b = $('board'), x = bu * b.offsetWidth, y = v * b.offsetHeight;
     let best = -1, bd = Infinity;
-    [...$('board').children].forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y); if (d < bd){ bd = d; best = i; } });
+    [...b.children].forEach((el, i) => { const d = Math.hypot(el.offsetLeft + el.offsetWidth / 2 - x, el.offsetTop + el.offsetHeight / 2 - y); if (d < bd){ bd = d; best = i; } });
     return best;
   },
+  // ngược lại: tâm ô i đang nằm ở đâu trên màn hình tại thời điểm now
+  screenOf(i, now){
+    const b = $('board'), el = b.children[i];
+    const bu = (el.offsetLeft + el.offsetWidth / 2) / b.offsetWidth, bv = (el.offsetTop + el.offsetHeight / 2) / b.offsetHeight;
+    return [.5 + (bu - .5) * this.cos(now), bv];
+  },
+  flight(){ return Fx.still() ? 1 : 560; },
   fly(u, v, piece){
-    const b = $('board').getBoundingClientRect(), n = $('nock').getBoundingClientRect(), a = $('arrow');
-    const sx = n.left + n.width / 2, sy = n.top + n.height / 2, tx = b.left + u * b.width, ty = b.top + v * b.height, end = Math.max(.28, b.width / Game.n / 80);
+    const f = this.ref(), n = $('nock').getBoundingClientRect(), a = $('arrow');
+    const sx = n.left + n.width / 2, sy = n.top + n.height / 2, tx = f.left + u * f.width, ty = f.top + v * f.height, end = Math.max(.28, f.width / Game.n / 80);
     a.src = PIECE[piece]; a.hidden = false; $('nock').style.visibility = 'hidden'; Sfx.shoot(); this.pose(this.u, 0);
     const anim = a.animate([
       { transform: `translate(${sx}px,${sy}px) scale(1) rotate(0deg)` },
       { transform: `translate(${(sx + tx) / 2}px,${Math.min(sy, ty) - 70}px) scale(${(1 + end) / 2}) rotate(200deg)`, offset: .55 },
-      { transform: `translate(${tx}px,${ty}px) scale(${end}) rotate(360deg)` }], { duration: Fx.still() ? 1 : 560, easing: 'cubic-bezier(.3,.6,.5,1)' });
+      { transform: `translate(${tx}px,${ty}px) scale(${end}) rotate(360deg)` }], { duration: this.flight(), easing: 'cubic-bezier(.3,.6,.5,1)' });
     return new Promise(res => { anim.onfinish = anim.oncancel = () => { a.hidden = true; $('nock').style.visibility = ''; res(); }; });
   },
   async fire(u, v){
     this.busy = true; this.on = false; $('wind').hidden = true;
-    const i = this.cellAt(u, v), piece = Game.turn;
-    await this.fly(u, v, piece);
+    await this.fly(u, v, Game.turn);
+    const i = this.cellAt(u, v, performance.now());        // tính lúc mũi tên chạm bia, không phải lúc thả tay
     this.busy = false; $('aim').hidden = true; this.pose(.5, 0);
     if (i < 0 || Game.board[i]){ this.misses++; Game.requestMiss(); } else Game.request(i);
   },
@@ -463,9 +566,11 @@ const Arena = {
       i = near[Math.floor(Math.random() * near.length)];
     }
     this.busy = true;
-    const cell = $('board').children[i].getBoundingClientRect(), b = $('board').getBoundingClientRect();
-    const tu = (cell.left + cell.width / 2 - b.left) / b.width, tv = (cell.top + cell.height / 2 - b.top) / b.height;
-    const aim = $('aim'), T = 800, s0 = performance.now(), power = Math.min(1, (1.12 - tv) / 1.24);
+    const T = 800, lead = T + this.flight();
+    // bia đang xoay: máy đợi tới lúc mặt bia đủ rộng rồi mới bắn đón
+    while (this.spin && Math.abs(this.cos(performance.now() + lead)) < .5) await new Promise(r => setTimeout(r, 60));
+    const s0 = performance.now(), [tu, tv] = this.screenOf(i, s0 + lead);
+    const aim = $('aim'), power = Math.min(1, (1.12 - tv) / 1.24);
     aim.hidden = false; aim.classList.add('bot'); this.u = tu;
     await new Promise(res => { const step = now => { const k = Math.min(1, (now - s0) / T), e = 1 - Math.pow(1 - k, 3);
       this.aimAt(.5 + (tu - .5) * e, .5 + (tv - .5) * e); this.pose(.5 + (tu - .5) * e, power * e); k < 1 ? requestAnimationFrame(step) : res(); }; requestAnimationFrame(step); });
@@ -557,7 +662,7 @@ const UI = {
   closeOverlays(){ ['friend', 'result', 'teamPick'].forEach(id => { $(id).hidden = true; }); $('toast').hidden = true; },
 
   home(){
-    clearTimeout(Game.botTimer); Arena.stop(); Game.over = true;
+    clearTimeout(Game.botTimer); Arena.stop(); Arena.setSpin(false); Game.over = true;
     $('game').hidden = true; $('home').hidden = false; $('result').hidden = true; $('winFx').hidden = true;
     const p = Store.p, t = p.team || 'X';
     document.body.dataset.team = t;
@@ -610,13 +715,13 @@ const UI = {
     $('cX').classList.toggle('turn', !result && Game.turn === 'X');
     $('cO').classList.toggle('turn', !result && Game.turn === 'O');
     $('arenaName').textContent = Game.arena === 'archery' ? '🏹 Bắn cung' : 'Cổ điển';
-    $('roomTag').textContent = Game.mode === 'online' ? 'Phòng ' + Net.code : Game.mode === 'local' ? 'Chung 1 máy' : Game.level === 'easy' ? 'Máy dễ' : 'Máy khó';
+    $('roomTag').textContent = Game.mode === 'online' ? 'Phòng ' + Net.code : Game.mode === 'local' ? 'Chung 1 máy' : ({ easy: 'Máy dễ', medium: 'Máy vừa', hard: 'Máy khó' })[Game.level];
     const st = $('status'); st.classList.toggle('end', !!result);
     st.innerHTML = result?.winner ? `🎉 ${icon(result.winner)} ${names[result.winner]} thắng!` : result?.draw ? '🤝 Hòa rồi!' : `Lượt của ${icon(Game.turn)} ${names[Game.turn]}`;
     const archery = Game.arena === 'archery', mine = !result && (Game.mode === 'local' || Game.turn === Game.my);
     $('undo').hidden = archery || Game.mode === 'online';
     $('undo').disabled = Game.over || !Game.history.length;
-    $('gameHint').textContent = result ? '' : archery ? (mine ? 'Chạm giữ, kéo xuống để giương cung. Canh hướng rồi thả tay để bắn.' : 'Đợi đối thủ bắn…')
+    $('gameHint').textContent = result ? '' : archery ? (mine ? (Arena.spin ? 'Bia đang quay, mặt sau đảo trái phải. Bắn đón lúc bia quay ngang mặt.' : 'Chạm giữ, kéo xuống để giương cung. Canh hướng rồi thả tay để bắn.') : 'Đợi đối thủ bắn…')
       : fading >= 0 && mine ? 'Quân đang nhấp nháy sẽ biến mất khi bạn đặt quân mới.' : '';
   },
   winFx(winner){
@@ -662,6 +767,7 @@ function wire(){
   $('optArena').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.arena = b.dataset.v; UI.home(); } };
   $('optSize').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.size = b.dataset.v; UI.home(); } };
   $('playEasy').onclick = () => UI.startMatch({ mode: 'bot', level: 'easy' });
+  $('playMedium').onclick = () => UI.startMatch({ mode: 'bot', level: 'medium' });
   $('playHard').onclick = () => UI.startMatch({ mode: 'bot', level: 'hard' });
   $('playFriend').onclick = () => { UI.friendMenu(); $('friend').hidden = false; };
   $('changeTeam').onclick = () => { $('teamPick').hidden = false; };
