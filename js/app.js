@@ -431,7 +431,7 @@ const Game = {
       UI.winFx(r.winner); Sfx.boom();
       if (outcome === 'lose') setTimeout(() => Sfx.lose(), 500); else { setTimeout(() => Sfx.win(), 350); Fx.confetti(); }
     }, 500);
-    setTimeout(() => { if (Game.result === r) UI.result(outcome, r, gain); }, 2100);
+    setTimeout(() => { if (Game.result === r) UI.result(outcome, r, gain); }, 2900);
   }
 };
 
@@ -479,10 +479,11 @@ const Arena = {
       this.wind = Math.round((Math.random() * 2 - 1) * max * 10) / 10;
     }
     const w = this.wind, t = $('wind');
-    t.textContent = w === 0 ? '🍃 Lặng gió' : `💨 Gió ${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} ô`;
+    t.textContent = w === 0 ? 'Lặng gió' : `Gió ${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} ô`;
+    $('dragHint').hidden = !!Store.p.taught;          // lần đầu: chỉ cách kéo cung
     t.hidden = false;
   },
-  stop(){ this.on = false; this.drag = null; cancelAnimationFrame(this.raf); $('aim').hidden = true; $('wind').hidden = true; this.pose(.5, 0); },
+  stop(){ this.on = false; this.drag = null; cancelAnimationFrame(this.raf); $('aim').hidden = true; $('wind').hidden = true; $('dragHint').hidden = true; this.pose(.5, 0); },
   // vẽ cung: xoay theo hướng ngắm, dây căng theo lực kéo
   pose(u, pull){
     const bow = $('bow'), nock = $('nock'), y = 62 + pull * 66;
@@ -552,7 +553,8 @@ const Arena = {
     return new Promise(res => { anim.onfinish = anim.oncancel = () => { a.hidden = true; $('nock').style.visibility = ''; res(); }; });
   },
   async fire(u, v){
-    this.busy = true; this.on = false; $('wind').hidden = true;
+    this.busy = true; this.on = false; $('wind').hidden = true; $('dragHint').hidden = true;
+    if (!Store.p.taught){ Store.p.taught = true; Store.save(); }
     await this.fly(u, v, Game.turn);
     const i = this.cellAt(u, v, performance.now());        // tính lúc mũi tên chạm bia, không phải lúc thả tay
     this.busy = false; $('aim').hidden = true; this.pose(.5, 0);
@@ -675,7 +677,7 @@ const UI = {
     this.sound();
     if (!p.team) $('teamPick').hidden = false;
   },
-  sound(){ const on = Store.p.sound; $('soundHome').textContent = on ? '🔊 Âm thanh: bật' : '🔇 Âm thanh: tắt'; $('soundGame').textContent = on ? '🔊' : '🔇'; },
+  sound(){ const on = Store.p.sound; $('soundText').textContent = on ? 'Âm thanh: bật' : 'Âm thanh: tắt'; $('soundHome').classList.toggle('off', !on); $('soundGame').classList.toggle('off', !on); },
   startMatch(o){
     const [n, k, g] = this.opts.size.split('-'), grow = g === 'grow';
     Game.setup(Object.assign({ n: +n, k: +k, grow, arena: this.opts.arena, remote: false, my: Store.p.team || 'X' }, o));
@@ -714,10 +716,10 @@ const UI = {
     $('sX').textContent = Game.score.X; $('sO').textContent = Game.score.O;
     $('cX').classList.toggle('turn', !result && Game.turn === 'X');
     $('cO').classList.toggle('turn', !result && Game.turn === 'O');
-    $('arenaName').textContent = Game.arena === 'archery' ? '🏹 Bắn cung' : 'Cổ điển';
+    $('arenaName').textContent = Game.arena === 'archery' ? 'Bắn cung' : 'Cổ điển';
     $('roomTag').textContent = Game.mode === 'online' ? 'Phòng ' + Net.code : Game.mode === 'local' ? 'Chung 1 máy' : ({ easy: 'Máy dễ', medium: 'Máy vừa', hard: 'Máy khó' })[Game.level];
     const st = $('status'); st.classList.toggle('end', !!result);
-    st.innerHTML = result?.winner ? `🎉 ${icon(result.winner)} ${names[result.winner]} thắng!` : result?.draw ? '🤝 Hòa rồi!' : `Lượt của ${icon(Game.turn)} ${names[Game.turn]}`;
+    st.innerHTML = result?.winner ? `${icon(result.winner)} ${names[result.winner]} thắng!` : result?.draw ? 'Hòa rồi!' : `Lượt của ${icon(Game.turn)} ${names[Game.turn]}`;
     const archery = Game.arena === 'archery', mine = !result && (Game.mode === 'local' || Game.turn === Game.my);
     $('undo').hidden = archery || Game.mode === 'online';
     $('undo').disabled = Game.over || !Game.history.length;
@@ -725,16 +727,17 @@ const UI = {
       : fading >= 0 && mine ? 'Quân đang nhấp nháy sẽ biến mất khi bạn đặt quân mới.' : '';
   },
   winFx(winner){
-    const el = $('winFx'); el.hidden = true; el.dataset.w = winner; $('winFxImg').src = PIECE[winner];
+    const el = $('winFx'); el.hidden = true; el.dataset.w = winner; $('winFxImg').src = PIECE[winner]; $('winFxPack').src = PACK[winner];
     void el.offsetWidth; el.hidden = false;                 // bật lại để hoạt cảnh chạy từ đầu
-    clearTimeout(this.winTimer); this.winTimer = setTimeout(() => { el.hidden = true; }, 1750);
+    clearTimeout(this.winTimer); this.winTimer = setTimeout(() => { el.hidden = true; }, 2550);
+    setTimeout(() => { if (!el.hidden) Sfx.place(winner); }, 1700);      // tiếng chữ rơi vào gói
   },
   cellCenter(i){ const c = $('board').children[i]; if (!c) return { x: innerWidth / 2, y: innerHeight / 2 }; const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; },
 
   result(outcome, r, gain){
     if ($('game').hidden) return;
     const team = Store.p.team || 'X';
-    $('resultImg').src = PIECE[r.winner || team];
+    $('resultImg').src = PACK[r.winner || team]; $('resultImg').classList.add('pack');
     $('resultTitle').textContent = outcome === 'win' ? 'Bạn thắng!' : outcome === 'lose' ? (Game.mode === 'bot' ? 'Máy thắng rồi' : 'Bạn bè thắng rồi') : outcome === 'draw' ? 'Hòa rồi!' : `Người ${r.winner} thắng!`;
     $('resultSub').textContent = outcome === 'win' ? `+${gain} điểm cho Phe ${team}` : outcome === 'lose' ? 'Làm ván nữa gỡ lại nha!' : outcome === 'local' ? 'Đổi lượt đi trước, làm ván nữa nha!' : '';
     $('result').hidden = false;
@@ -758,6 +761,23 @@ const UI = {
     $('survey').hidden = true; Sfx.win(); Fx.confetti();
     this.toast(`Cảm ơn bạn! +${CONFIG.points.survey} điểm cho Phe ${p.team || 'X'}`);
     if (!$('home').hidden) this.home();
+  }
+};
+
+/* Mở đầu: logo → quảng cáo Tayo X → Tayo O → cả cặp + nút Chơi ngay. Chạm để sang bước, có nút Bỏ qua. */
+const Intro = {
+  step: 0, timer: 0, done: false,
+  go(n){
+    clearTimeout(this.timer); this.step = n; $('intro').dataset.step = n;
+    if (n === 1 || n === 2){ Sfx.boom(); this.timer = setTimeout(() => this.go(n + 1), 2600); }
+    if (n === 3) Sfx.win();
+  },
+  end(how){
+    if (this.done) return; this.done = true; clearTimeout(this.timer);
+    $('intro').hidden = true; Track.send('mo_dau', { role: how });
+  },
+  wire(){
+    $('intro').onclick = e => { if (e.target.closest('#introSkip')) return this.end('bo_qua'); if (e.target.closest('#introPlay')) return this.end('xem_het'); if (this.step < 3) this.go(this.step + 1); };
   }
 };
 
@@ -807,10 +827,11 @@ function wire(){
 }
 
 /* Khởi động */
-Store.load(); Fx.init(); wire(); UI.home(); Track.flush();
+Store.load(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush();
 (() => {  // vào bằng link mời: ?room=ABCD
   const q = new URLSearchParams(location.search), room = q.get('room');
   if (!room) return;
+  Intro.end('link_moi');         // vào bằng link mời thì bỏ qua phần mở đầu
   history.replaceState(null, '', location.pathname);
   $('teamPick').hidden = true;   // khách vào chơi liền, chọn phe sau khi về sảnh
   Net.join(room);

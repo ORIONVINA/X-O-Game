@@ -3,13 +3,14 @@
 Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Link chơi là `index.html` ở thư mục gốc.
 
 ## Có gì trong game
+- **Mở đầu và quảng cáo sản phẩm:** logo → Tayo X → Tayo O → cả cặp và nút Chơi ngay. Chạm để sang bước, có nút Bỏ qua. Chữ quảng cáo sửa trong `index.html` (khối `#intro`).
 - **Chọn phe X hoặc O.** Giao diện đổi màu theo phe, thắng thì cộng điểm cho phe.
 - **Sân bắn cung (sân chính):** góc nhìn người bắn, bàn cờ dựng ở xa. Chạm giữ rồi kéo xuống để giương cung, kéo trái phải canh hướng, kéo sâu để bắn cao, thả tay để bắn. Có gió và tay rung nhẹ. Ra ngoài hoặc trúng ô đã có quân là mất lượt.
 - **Sân cổ điển:** chạm để đặt quân.
 - **Không có hòa:** bàn 3×3 mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất. Bàn 5×5, 7×7 kín bàn thì tự thêm 1 ô ở cả bốn phía.
 - **Bàn 8×8 mở rộng:** nối 5 quân để thắng. Có 4 quân liên tiếp vướng mép (hoặc kín bàn) thì bàn tự mở rộng.
 - **Chơi với máy** (Dễ, Vừa, Khó; cấp Khó tính trước nhiều nước, và ở sân bắn cung thì bia quay tròn, chơi được cả 2 mặt) hoặc **chơi với bạn**: mời qua link, nhập mã phòng 4 ký tự, hoặc chơi chung 1 máy.
-- **Màn thắng:** chữ X hoặc O của bên thắng phóng to giữa màn hình rồi mới hiện kết quả.
+- **Màn thắng:** chữ X hoặc O của bên thắng phóng to, rồi thu nhỏ bay vào gói bánh của phe đó, sau đó hiện kết quả.
 - **Âm thanh và hiệu ứng:** tiếng đặt quân, bắn cung, thắng thua; pháo giấy, tia văng, rung bàn.
 - **Khảo sát sau ván đầu:** nhóm tuổi, giới tính, chấm điểm Tayo X và Tayo O (5 emoji).
 - **Data về Google Sheet:** xem `tools/HUONG-DAN-GOOGLE-SHEET.md`.
