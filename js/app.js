@@ -16,7 +16,7 @@
 const CONFIG = {
   // Dán link Apps Script vào đây để data chảy về Google Sheet (xem tools/HUONG-DAN-GOOGLE-SHEET.md)
   // Nơi lưu data: Supabase (khóa công khai "anon/publishable" đặt vào key; khóa này vốn để cho web dùng, quyền chỉ gồm 2 hàm ghi() và bang_vang_hom_nay()).
-  supabase: { url: 'https://zcqcigmmbmuoxhsfwuyb.supabase.co', key: '' },
+  supabase: { url: 'https://zcqcigmmbmuoxhsfwuyb.supabase.co', key: 'sb_publishable_XPl3VOgRv3YwbeHHntNOoA_t7x4AXTS' },
   // Dự phòng cũ (Google Sheet qua Apps Script), chỉ dùng khi Supabase chưa có key
   sheetUrl: 'https://script.google.com/macros/s/AKfycbx3pKc0ixYv2UJg0wSRFT0pqvSwxgi-Vw-AhOHT0OCMl9LvGGWyp_eruihiv543b839/exec',
   points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
