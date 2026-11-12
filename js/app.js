@@ -15,6 +15,9 @@
 /* 1. CONFIG */
 const CONFIG = {
   // Dán link Apps Script vào đây để data chảy về Google Sheet (xem tools/HUONG-DAN-GOOGLE-SHEET.md)
+  // Nơi lưu data: Supabase (khóa công khai "anon/publishable" đặt vào key; khóa này vốn để cho web dùng, quyền chỉ gồm 2 hàm ghi() và bang_vang_hom_nay()).
+  supabase: { url: 'https://zcqcigmmbmuoxhsfwuyb.supabase.co', key: '' },
+  // Dự phòng cũ (Google Sheet qua Apps Script), chỉ dùng khi Supabase chưa có key
   sheetUrl: 'https://script.google.com/macros/s/AKfycbx3pKc0ixYv2UJg0wSRFT0pqvSwxgi-Vw-AhOHT0OCMl9LvGGWyp_eruihiv543b839/exec',
   points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
@@ -58,24 +61,39 @@ const Store = {
 
 /* 3. Track – mỗi sự kiện là 1 dòng trong Google Sheet */
 const Track = {
+  busy: false, fails: 0, timer: 0,
   send(event, data, anonymous){
     const p = Store.p;
     const row = Object.assign({ ts: new Date().toISOString(), event,
+      rid: (p.uid || 'x') + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),   // mã riêng từng dòng: gửi lại không bị lưu trùng
       uid: anonymous ? '' : p.uid, src: p.src, team: p.team || '',
       device: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop' }, data);
-    p.queue.push(row); if (p.queue.length > 200) p.queue.shift();
+    p.queue.push(row); if (p.queue.length > 300) p.queue.shift();
     Store.save(); this.flush();
   },
-  busy: false,
+  ready(){ return !!(CONFIG.supabase.key || CONFIG.sheetUrl); },
+  // Gửi tối đa 50 dòng mỗi lượt. Chỉ xóa khỏi hàng chờ khi máy chủ báo đã lưu; lỗi thì chờ lâu dần (có ngẫu nhiên) rồi gửi lại.
   flush(){
     const p = Store.p;
-    if (!CONFIG.sheetUrl || !p.queue.length || this.busy) return;   // đang gửi dở thì chờ, tránh gửi trùng
-    this.busy = true;
-    const batch = p.queue.slice();
-    // text/plain + no-cors: cách gửi mà Apps Script nhận được từ web tĩnh
-    fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(batch), keepalive: true })
-      .then(() => { p.queue = p.queue.slice(batch.length); Store.save(); this.busy = false; this.flush(); })
-      .catch(() => { this.busy = false; });      // lỗi mạng: giữ lại, lần sau gửi bù
+    if (!this.ready() || !p.queue.length || this.busy) return;
+    this.busy = true; clearTimeout(this.timer);
+    const batch = p.queue.slice(0, 50), sb = CONFIG.supabase;
+    const done = ok => {
+      this.busy = false;
+      if (ok){ p.queue = p.queue.slice(batch.length); Store.save(); this.fails = 0; if (p.queue.length) this.flush(); }
+      else { this.fails = Math.min(this.fails + 1, 6); this.timer = setTimeout(() => this.flush(), Math.min(60000, 2000 * 2 ** this.fails) * (.7 + Math.random() * .6)); }
+    };
+    if (sb.key){
+      fetch(sb.url + '/rest/v1/rpc/ghi', { method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key },
+        body: JSON.stringify({ rows: batch }) })
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(v => done(v === 'ok'), () => done(false));
+    } else {
+      // text/plain + no-cors: cách gửi mà Apps Script nhận được từ web tĩnh (không biết được có lưu thành công hay không)
+      fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(batch), keepalive: true })
+        .then(() => done(true), () => done(false));
+    }
   }
 };
 
@@ -174,9 +192,13 @@ const Music = {
 const Board = {
   data: null, at: 0,
   load(){
-    if (!CONFIG.sheetUrl || Date.now() - this.at < 60000) return;     // mỗi phút hỏi tối đa 1 lần
+    const sb = CONFIG.supabase;
+    if (!(sb.key || CONFIG.sheetUrl) || Date.now() - this.at < 60000) return;     // mỗi phút hỏi tối đa 1 lần
     this.at = Date.now();
-    fetch(CONFIG.sheetUrl + '?board=1').then(r => r.json()).then(d => {
+    const req = sb.key
+      ? fetch(sb.url + '/rest/v1/rpc/bang_vang_hom_nay', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key }, body: '{}' })
+      : fetch(CONFIG.sheetUrl + '?board=1');
+    req.then(r => r.json()).then(d => {
       if (d && Number.isFinite(d.X) && Number.isFinite(d.O)){ this.data = { X: d.X, O: d.O }; this.show(); }
     }).catch(() => {});
   },
@@ -915,6 +937,7 @@ function wire(){
   $('surveySkip').onclick = () => { $('survey').hidden = true; };
   $('surveySend').onclick = () => UI.surveySend();
   addEventListener('pagehide', () => { Track.flush(); Net.send({ t: 'bye' }); });
+  addEventListener('online', () => Track.flush());
 }
 
 /* Khởi động */
