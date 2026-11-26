@@ -19,13 +19,13 @@ const CONFIG = {
   supabase: { url: 'https://zcqcigmmbmuoxhsfwuyb.supabase.co', key: 'sb_publishable_XPl3VOgRv3YwbeHHntNOoA_t7x4AXTS' },
   // Dự phòng cũ (Google Sheet qua Apps Script), chỉ dùng khi Supabase chưa có key
   sheetUrl: 'https://script.google.com/macros/s/AKfycbx3pKc0ixYv2UJg0wSRFT0pqvSwxgi-Vw-AhOHT0OCMl9LvGGWyp_eruihiv543b839/exec',
-  points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
+  points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20, lose: 2 },     // lose: điểm cố gắng khi thua, để thua vẫn thấy mình tiến lên
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
   // Nhạc nền: đặt file MP3 vào thư mục assets rồi ghi đường dẫn vào đây, ví dụ 'assets/nhac-teaser.mp3'. Để trống là không có nhạc.
   music: { teaser: 'assets/audio/teaser.mp3', lobby: '' },
   musicVolume: 0.7,                 // 0 đến 1, âm lượng nhạc nền
   // Âm thanh làm từ file (đặt trong assets/audio/). Để trống một mục thì game dùng tiếng tự tạo thay thế.
-  sfx: { win: 'assets/audio/win.mp3', bonus: 'assets/audio/bonus.mp3', unlock: 'assets/audio/unlock.mp3' },
+  sfx: { win: 'assets/audio/win.mp3', lose: 'assets/audio/lose.mp3', bonus: 'assets/audio/bonus.mp3', unlock: 'assets/audio/unlock.mp3' },
   sfxVolume: 0.8,                   // 0 đến 1, âm lượng các tiếng làm từ file
   botDelay: 450,
   growMax: 14,                   // bàn mở rộng: lớn nhất 14×14 để ô không quá nhỏ trên điện thoại
@@ -33,6 +33,8 @@ const CONFIG = {
   storageKey: 'xo_profile_v2',
   roomPrefix: 'tayoxo-',
   peerOptions: window.XO_PEER_OPTIONS || {},
+  // Mục tiêu tỉ lệ NGƯỜI thắng máy (ước lượng, cần chỉnh theo số liệu thật sau khi mở): Dễ khoảng 65-75%, Vừa khoảng 45-55%, Khó khoảng 20-30%.
+  blunder: { easy: 0.65, medium: 0.35, hard: 0.18 },     // xác suất máy đi nhầm (đi ngẫu nhiên) ở mỗi mức
   aim: { easy: 0.65, medium: 0.9, hard: 0.97 },   // độ chính xác của máy ở sân bắn cung
   wind: { easy: 0.35, medium: 0.6, hard: 0.8 },    // gió mạnh nhất (tính theo ô)
   spinSeconds: 7                                    // sân bắn cung cấp Khó: bia quay 1 vòng mất bấy nhiêu giây
@@ -155,7 +157,7 @@ const Sfx = {
   win(){ if (this.file('win')) return; this.synthWin(); },
   bonus(){ if (this.file('bonus')) return; this.synthWin(); },
   synthWin(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .2, 'triangle', .13, i * .11)); this.tone(1319, .45, 'sine', .12, .44); },
-  lose(){ [392, 330, 262].forEach((f, i) => this.tone(f, .26, 'sine', .13, i * .2)); }
+  lose(){ if (this.file('lose')) return; [392, 330, 262].forEach((f, i) => this.tone(f, .26, 'sine', .13, i * .2)); }
 };
 
 /* 4b. Fx – pháo giấy, tia văng, rung bàn */
@@ -288,8 +290,9 @@ const Rules = {
 
 /* 6. AI */
 const AI = {
+  // Mỗi mức có "tỉ lệ đi nhầm" (đi ngẫu nhiên thay vì nước tốt nhất), chỉnh ở CONFIG.blunder
   move(g, level){
-    if (level === 'easy' && Math.random() < 0.6) return this.random(g);
+    if (Math.random() < (CONFIG.blunder[level] || 0)) return this.random(g);
     if (g.vanish) return this.vanish(g, level === 'hard' ? 10 : 6);       // Khó: nhìn xa hơn 4 nước
     return level === 'hard' ? this.deep(g) : this.heuristic(g);
   },
@@ -517,6 +520,7 @@ const Game = {
     const outcome = this.mode === 'local' ? 'local' : r.draw ? 'draw' : r.winner === this.my ? 'win' : 'lose';
     let gain = 0;
     if (outcome === 'win') gain = this.mode === 'online' ? CONFIG.points.online : CONFIG.points[this.level];
+    else if (outcome === 'lose') gain = CONFIG.points.lose;
     if (p.lastDay !== d){
       const y = new Date(Date.now() - 864e5).toLocaleDateString('sv');
       p.streak = p.lastDay === y ? p.streak + 1 : 1; p.lastDay = d;
@@ -529,7 +533,7 @@ const Game = {
     setTimeout(() => {
       if (Game.result !== r) return;
       UI.winFx(r.winner);
-      if (outcome === 'lose'){ Sfx.boom(); setTimeout(() => Sfx.lose(), 500); }
+      if (outcome === 'lose'){ if (Sfx.has('lose')) Sfx.lose(); else { Sfx.boom(); setTimeout(() => Sfx.lose(), 500); } }     // tiếng thua phát đúng lúc chữ của bên thắng phóng to
       else { if (!Sfx.has('win')) Sfx.boom(); Sfx.win(); Fx.confetti(); }       // tiếng thắng phát đúng lúc chữ X/O bắt đầu phóng to
     }, 500);
     setTimeout(() => { if (Game.result === r){ UI.result(outcome, r, gain); if (!$('game').hidden) UI.surveyMaybe(); } }, 2900);
@@ -664,7 +668,9 @@ const Arena = {
   },
   async botShoot(target){
     const n = Game.n; let i = target;
-    if (Math.random() > CONFIG.aim[Game.level]){   // máy bắn lệch sang ô kế bên
+    // bàn càng lớn, ô càng nhỏ và người chơi càng khó bắn trúng, nên máy cũng bắn lệch nhiều hơn cho công bằng
+    const acc = CONFIG.aim[Game.level] * Math.max(0.5, 1 - 0.06 * (n - 3));
+    if (Math.random() > acc){   // máy bắn lệch sang ô kế bên
       const r = Math.floor(target / n), c = target % n, near = [];
       for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]){ const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < n && cc >= 0 && cc < n) near.push(rr * n + cc); }
       i = near[Math.floor(Math.random() * near.length)];
@@ -850,7 +856,7 @@ const UI = {
     const team = Store.p.team || 'X';
     $('resultImg').src = PACK[r.winner || team]; $('resultImg').classList.add('pack');
     $('resultTitle').textContent = outcome === 'win' ? 'Bạn thắng!' : outcome === 'lose' ? (Game.mode === 'bot' ? 'Máy thắng rồi' : 'Bạn bè thắng rồi') : outcome === 'draw' ? 'Hòa rồi!' : `Người ${r.winner} thắng!`;
-    $('resultSub').textContent = outcome === 'win' ? `+${gain} điểm cho Phe ${team}` : outcome === 'lose' ? 'Làm ván nữa gỡ lại nha!' : outcome === 'local' ? 'Đổi lượt đi trước, làm ván nữa nha!' : '';
+    $('resultSub').textContent = outcome === 'win' ? `+${gain} điểm cho Phe ${team}` : outcome === 'lose' ? `+${gain} điểm cố gắng cho Phe ${team}. Làm ván nữa gỡ lại nha!` : outcome === 'local' ? 'Đổi lượt đi trước, làm ván nữa nha!' : '';
     $('result').hidden = false;
   },
 
