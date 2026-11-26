@@ -33,3 +33,9 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 ## Chơi với bạn hoạt động thế nào
 Hai máy nối trực tiếp với nhau qua PeerJS, dùng máy chủ ghép nối miễn phí của PeerJS. Không cần máy chủ riêng.
 Với một số mạng công ty hoặc mạng di động chặn kết nối trực tiếp, phòng có thể không vào được; khi đó dùng "Chơi chung 1 máy".
+
+## Nguồn âm thanh
+| File | Nguồn | Giấy phép |
+|---|---|---|
+| `assets/audio/teaser.mp3` | "160BPM Electronic Loop" của RUOK, [OpenGameArt](https://opengameart.org/content/160bpm-electronic-loop) | CC0 1.0: dùng, cắt, chỉnh tự do, kể cả thương mại, không cần ghi tên |
+| `assets/audio/win.mp3`, `bonus.mp3`, `unlock.mp3` | Mixkit (mixkit.co): "Completion of a level", "Winning an extra bonus", "Unlock game notification" | Giấy phép Mixkit. Cần kiểm tra lại điều khoản và giữ trang tải về làm bằng chứng |
