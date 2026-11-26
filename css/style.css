@@ -84,23 +84,23 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 
 /* Màn chơi */
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.topbar img{height:54px;width:auto;filter:drop-shadow(0 0 12px rgba(var(--neon-rgb),.8))}
+.topbar img{height:40px;width:auto;filter:drop-shadow(0 0 12px rgba(var(--neon-rgb),.8))}
 .score{display:grid;grid-template-columns:1fr .7fr 1fr;gap:8px}
-.card{color:#fff;border-radius:16px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;transition:.2s;opacity:.82}
-.card img{width:38px;height:38px;object-fit:contain;flex:none}
+.card{color:#fff;border-radius:14px;padding:5px 10px;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;transition:.2s;opacity:.82}
+.card img{width:32px;height:32px;object-fit:contain;flex:none}
 .card img,.status img{background:radial-gradient(circle,#fff 55%,rgba(255,255,255,0) 72%);border-radius:50%;padding:3px}
 .card div{display:flex;flex-direction:column;min-width:0;line-height:1.1}
-.card b{font-size:28px;font-style:italic;font-weight:900}
+.card b{font-size:24px;font-style:italic;font-weight:900}
 .card span{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card.mid{flex-direction:column;gap:2px;text-align:center;font-size:11px;line-height:1.2;padding:6px;opacity:1}
 .card.mid b{font-size:13px;font-style:normal;font-weight:800}
 .card.turn{opacity:1;border-color:var(--gold);transform:translateY(-3px);box-shadow:0 0 0 2px rgba(255,212,46,.4),0 0 24px rgba(255,212,46,.95),inset 0 0 18px rgba(255,212,46,.25)}
-.status{align-self:center;display:flex;align-items:center;gap:8px;min-height:38px;padding:6px 18px;border-radius:999px;font-weight:800;font-size:16px;text-align:center;color:#fff}
+.status{align-self:center;display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 16px;border-radius:999px;font-weight:800;font-size:15px;text-align:center;color:#fff}
 .status img{width:24px;height:24px;object-fit:contain}
 .status.end{border-color:#ffb3a8;background:linear-gradient(170deg,#ff5a3c,var(--red) 40%,var(--red-deep));box-shadow:0 0 24px rgba(255,40,30,.9);font-style:italic;font-weight:900;text-transform:uppercase}
 
 /* Bàn cờ: khung đen, viền neon, dàn bóng đèn như chữ X/O trên bao bì */
-.board-wrap{position:relative;align-self:center;width:min(100%,max(260px,calc(var(--vh) - 400px)));padding:9px;border-radius:26px;
+.board-wrap{position:relative;align-self:center;width:min(100%,max(260px,calc(var(--vh) - 330px)));padding:9px;border-radius:26px;
   background:#02040f;box-shadow:0 0 0 3px var(--neon),0 0 34px 6px rgba(var(--neon-rgb),.75),inset 0 0 0 2px var(--neon-soft)}
 .board-wrap::before{content:"";position:absolute;inset:1px;border-radius:25px;border:6px dotted #fff;filter:drop-shadow(0 0 4px var(--neon-soft)) drop-shadow(0 0 8px var(--neon));pointer-events:none;animation:bulbs 1.1s steps(2) infinite}
 @keyframes bulbs{50%{opacity:.55}}
@@ -122,24 +122,23 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 @keyframes pop{from{transform:scale(2.2) rotate(-25deg);opacity:0}to{transform:none;opacity:1}}
 .cell.fade img{animation:blink .7s ease-in-out infinite alternate}
 @keyframes blink{from{opacity:.8}to{opacity:.25}}
-.cell.win{border-color:#fff;background:radial-gradient(circle,#fff6b0,var(--gold) 60%,#e08a00);box-shadow:0 0 26px 4px rgba(255,212,46,.95);animation:glow .7s ease-in-out infinite alternate}
+.cell.win{border-color:#fff;background:radial-gradient(circle,#fff6b0,var(--gold) 60%,#e08a00);box-shadow:0 0 22px 6px rgba(255,212,46,.95)}
 .cell.win img{animation:dance .7s ease-in-out infinite alternate;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4))}
 .board.over .cell:not(.win){filter:brightness(.55) saturate(.7)}
-@keyframes glow{to{box-shadow:0 0 40px 10px rgba(255,150,30,1)}}
 @keyframes dance{to{transform:scale(1.14) rotate(6deg)}}
 
 /* Sân bắn cung: góc nhìn người bắn. Bàn cờ dựng ở xa, mặt sân kẻ lưới chạy về phía chân trời, cây cung ở tiền cảnh */
 .scene{position:relative;display:flex;flex-direction:column;align-items:center}
 .ground,.stand,.bow,.wind{display:none}
-#game[data-arena="archery"] .scene{--sceneH:clamp(360px,calc(var(--vh) - 320px),600px);height:var(--sceneH);touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
+#game[data-arena="archery"] .scene{--sceneH:clamp(380px,calc(var(--vh) - 255px),820px);height:var(--sceneH);touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
   border-radius:22px;overflow:hidden;border:2px solid var(--neon);box-shadow:0 0 18px rgba(var(--neon-rgb),.6),inset 0 0 40px rgba(0,0,0,.6);
   background:linear-gradient(rgba(0,0,0,.55),rgba(var(--neon-rgb),.18) 46%,rgba(0,0,0,.2) 46%)}
 #game[data-arena="archery"] .ground{display:block;position:absolute;left:-60%;right:-60%;top:46%;height:120%;transform-origin:50% 0;transform:perspective(340px) rotateX(74deg);
   background:repeating-linear-gradient(90deg,rgba(var(--neon-rgb),.9) 0 2px,transparent 2px 44px),repeating-linear-gradient(0deg,rgba(var(--neon-rgb),.9) 0 2px,transparent 2px 44px),linear-gradient(rgba(var(--neon-rgb),.35),rgba(0,0,0,.9));
   will-change:transform}
-#game[data-arena="archery"] .board-wrap{--bw:58%;margin-top:14px;width:min(var(--bw),calc(var(--sceneH) - 215px));padding:6px;border-radius:16px;z-index:2}
-#game[data-arena="archery"][data-big="1"] .board-wrap{--bw:74%}
-#game[data-arena="archery"][data-big="2"] .board-wrap{--bw:90%}
+#game[data-arena="archery"] .board-wrap{--bw:82%;margin-top:14px;width:min(var(--bw),calc(var(--sceneH) - 190px));padding:6px;border-radius:16px;z-index:2}
+#game[data-arena="archery"][data-big="1"] .board-wrap{--bw:94%}
+#game[data-arena="archery"][data-big="2"] .board-wrap{--bw:98%}
 #game[data-arena="archery"] .board-wrap::before{border-width:4px;border-radius:15px}
 #game[data-arena="archery"] .board{border-radius:10px}
 #game[data-arena="archery"] .stand{display:block;width:10px;flex:0 0 26px;background:linear-gradient(90deg,#000,var(--neon),#000);box-shadow:0 0 12px var(--neon);z-index:1}
@@ -159,18 +158,26 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 #arrow{position:fixed;left:0;top:0;width:70px;height:70px;margin:-35px 0 0 -35px;object-fit:contain;pointer-events:none;z-index:55;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 14px #fff)}
 /* Màn thắng: chữ X hoặc O phóng to, rồi thu nhỏ bay vào gói bánh của phe thắng.
    Chữ rộng tối đa 68% màn hình và phóng tối đa 1.16 lần nên luôn nằm gọn trong màn hình. */
-#winFx{position:fixed;inset:0;z-index:45;display:grid;place-items:center;pointer-events:none;overflow:hidden;animation:winBg 2.5s ease-out both}
+/* Hiệu ứng thắng/thua. Chỉ dùng transform và opacity trên hình đã vẽ sẵn quầng sáng (assets/fx-*.webp),
+   không dùng filter hay box-shadow chuyển động, vì iPad vẽ lại những thứ đó mỗi khung hình nên giật. */
+#winFx{position:fixed;inset:0;z-index:45;display:grid;place-items:center;pointer-events:none;overflow:hidden;animation:winBg 2.5s ease-out both;will-change:opacity;
+  --lw:min(64vw,46vh,380px);--pw:min(46vw,36vh,250px)}
 #winFx[data-w="X"]{--c:30,155,255} #winFx[data-w="O"]{--c:255,138,30}
 #winFx{background:radial-gradient(circle,rgba(var(--c),.75) 0%,rgba(var(--c),.25) 35%,rgba(0,0,0,.88) 75%)}
-#winFx img{grid-area:1/1;height:auto}
-#winFx .wletter{width:min(68vw,48vh,400px);animation:winZoom 2.5s cubic-bezier(.2,.9,.3,1) both;
-  filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 26px rgb(var(--c))) drop-shadow(0 0 70px rgb(var(--c)))}
-#winFx .wpack{width:min(46vw,36vh,250px);animation:winPack 2.5s ease-out both;filter:drop-shadow(0 0 22px rgb(var(--c))) drop-shadow(0 12px 16px rgba(0,0,0,.6))}
-#winFx .ring{grid-area:1/1;width:40vmin;height:40vmin;border-radius:50%;border:10px solid #fff;box-shadow:0 0 40px 10px rgb(var(--c)),inset 0 0 40px 10px rgb(var(--c));animation:winRing 1.1s ease-out .25s both}
+#winFx img{grid-area:1/1;height:auto;will-change:transform,opacity;backface-visibility:hidden}
+.wletter{width:calc(var(--lw) * 1.667)}      /* ảnh có chừa lề cho quầng sáng: rộng gấp 1,667 lần chữ */
+.wpack{width:calc(var(--pw) * 1.381)}
+#winFx .wletter{animation:winZoom 2.5s cubic-bezier(.2,.9,.3,1) both}
+#winFx .wpack{animation:winPack 2.5s ease-out both}
+#winFx .ring{grid-area:1/1;width:62vmin;height:62vmin;border-radius:50%;will-change:transform,opacity;
+  background:radial-gradient(circle,transparent 52%,rgba(255,255,255,.95) 55%,rgba(var(--c),.85) 60%,transparent 70%);animation:winRing 1.1s ease-out .25s both}
 #winFx .r2{animation-delay:1.55s}
+/* khi hiệu ứng đang chạy, tạm dừng mọi hoạt cảnh khác để máy dồn sức cho nó */
+body.fxon *,body.fxon *::before,body.fxon *::after{animation-play-state:paused}
+body.fxon #winFx,body.fxon #winFx *{animation-play-state:running}
 @keyframes winZoom{0%{transform:scale(.04) rotate(-50deg);opacity:0}20%{transform:scale(1.16) rotate(8deg);opacity:1}30%{transform:scale(.94) rotate(-3deg)}38%,50%{transform:scale(1) rotate(0);opacity:1}66%{transform:scale(.16) rotate(200deg);opacity:1}72%,100%{transform:scale(.02) rotate(360deg);opacity:0}}
 @keyframes winPack{0%,44%{transform:translateY(12vh) scale(.5);opacity:0}58%{transform:translateY(0) scale(1);opacity:1}66%{transform:scale(1)}72%{transform:scale(1.22) rotate(-5deg)}80%{transform:scale(.96) rotate(3deg)}88%,100%{transform:scale(1.05) rotate(0);opacity:1}}
-@keyframes winRing{from{transform:scale(.1);opacity:1}to{transform:scale(5);opacity:0}}
+@keyframes winRing{from{transform:scale(.2);opacity:1}to{transform:scale(1.8);opacity:0}}
 @keyframes winBg{0%{opacity:0}8%{opacity:1}92%{opacity:1}100%{opacity:0}}
 .result-art.pack{width:auto;height:170px}
 
@@ -237,10 +244,10 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 .t5 .tz-board i.w{animation:lit .3s ease-out both}
 .t5 .tz-board i.w:nth-child(2){animation-delay:.15s} .t5 .tz-board i.w:nth-child(3){animation-delay:.3s}
 @keyframes lit{from{background:#eef7ff;transform:scale(.8)}to{transform:scale(1);box-shadow:0 0 18px var(--gold)}}
-.t5-fx{position:relative;display:grid;place-items:center;width:min(60vw,34vh,280px);height:min(60vw,34vh,280px)}
-.t5-fx img{grid-area:1/1;height:auto}
-.t5-fx .wletter{width:78%;animation:winZoom 2.4s cubic-bezier(.2,.9,.3,1) .5s both;filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 22px #1e9bff)}
-.t5-fx .wpack{width:62%;animation:winPack 2.4s ease-out .5s both;filter:drop-shadow(0 0 20px #1e9bff)}
+.t5-fx{position:relative;display:grid;place-items:center;--box:min(60vw,34vh,280px);--lw:calc(var(--box) * .78);--pw:calc(var(--box) * .62);width:var(--box);height:var(--box)}
+.t5-fx img{grid-area:1/1;height:auto;will-change:transform,opacity}
+.t5-fx .wletter{animation:winZoom 2.4s cubic-bezier(.2,.9,.3,1) .5s both}
+.t5-fx .wpack{animation:winPack 2.4s ease-out .5s both}
 .t5 .t5-win{color:var(--gold);text-shadow:0 0 16px var(--gold),0 3px 0 #7a3b00;animation:rise .4s ease-out 1.9s both}
 /* --- cảnh 6: bảng vàng + lời mời --- */
 .i-logo.small{width:min(46vw,26vh,230px);animation:slam .5s cubic-bezier(.2,1.5,.4,1) both}
@@ -282,10 +289,22 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
 #game[data-arena="archery"] .drag-hint:not([hidden]){display:flex;flex-direction:column;align-items:center;gap:6px;position:absolute;left:0;right:0;top:54%;z-index:5;pointer-events:none;font-size:13px;font-weight:800;color:#fff;text-shadow:0 1px 4px #000}
 .drag-hint i{width:34px;height:34px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.3);box-shadow:0 0 14px #fff;animation:dragDown 1.4s ease-in-out infinite}
 @keyframes dragDown{0%{transform:translateY(0);opacity:0}20%{opacity:1}75%{transform:translateY(90px);opacity:1}100%{transform:translateY(90px);opacity:0}}
+.scene .hint{margin-top:8px}
+/* sân bắn cung: không dùng dòng chữ gợi ý (đã có chấm sáng chỉ cách kéo và dòng "Lượt của..." phía trên) */
+#game[data-arena="archery"] .scene .hint{display:none}
+@media (max-height:700px){
+  /* màn hình thấp: thu nhỏ cây cung để bàn cờ có thêm chỗ */
+  #game[data-arena="archery"] .bow{width:min(190px,52%);margin-left:calc(min(190px,52%) / -2)}
+  #game[data-arena="archery"] .board-wrap{width:min(var(--bw),calc(var(--sceneH) - 150px))}
+}
 .hint{text-align:center;font-size:12.5px;color:var(--text);min-height:18px;text-shadow:0 1px 3px #000}
 
 /* Lớp phủ */
 .overlay{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#teamPick{flex-direction:column;gap:16px;
+  background:linear-gradient(rgba(0,0,0,.30),rgba(0,0,0,.62)),linear-gradient(90deg,transparent 49.6%,rgba(255,255,255,.9) 49.6% 50.4%,transparent 50.4%),
+    url(../assets/bg-o.svg) right center/50% 100% no-repeat,url(../assets/bg-x.svg) left center/50% 100% no-repeat,#01030f}
+.pick-logo{width:min(54vw,26vh,260px);height:auto;flex:none;filter:drop-shadow(0 0 14px rgba(255,255,255,.35))}
 .overlay#survey{z-index:42}   /* khảo sát nằm trên bảng kết quả */
 .sheet{width:100%;max-width:440px;max-height:100%;overflow:auto;color:var(--text);border-radius:24px;padding:20px 18px;display:flex;flex-direction:column;gap:12px;
   background:linear-gradient(170deg,color-mix(in srgb,var(--tile) 85%,#fff 6%),#02030c);border:2px solid var(--neon);
@@ -324,5 +343,24 @@ button{font:inherit;-webkit-tap-highlight-color:transparent}
   padding:10px 18px;border-radius:999px;font-weight:800;font-size:14px;max-width:calc(100% - 32px);text-align:center;box-shadow:0 0 20px rgba(255,212,46,.7)}
 #pop{position:fixed;z-index:58;pointer-events:none;font-weight:900;font-style:italic;font-size:38px;color:#fff;-webkit-text-stroke:2px var(--red);text-shadow:0 0 18px var(--red),0 4px 0 #6a0000;transform:translate(-50%,-50%)}
 
-@media (min-width:560px){ .seg button{font-size:14px} .board-wrap{width:min(100%,max(260px,calc(var(--vh) - 420px)))} }
+@media (min-width:560px){ .seg button{font-size:14px} .board-wrap{width:min(100%,max(260px,calc(var(--vh) - 330px)))} }
 @media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
+
+/* Máy tính bảng dựng đứng: cho khung game rộng hơn 500px */
+@media (min-width:700px){
+  .app{max-width:min(94vw,720px)}
+  #home{max-width:500px;width:100%;margin-left:auto;margin-right:auto}
+}
+/* Máy tính bảng nằm ngang: bàn cờ chiếm cả chiều cao màn hình, thanh điều khiển nằm cột bên trái */
+@media (orientation:landscape) and (min-width:700px) and (min-height:520px){
+  .app{max-width:min(1180px,96vw)}
+  #game{display:grid;grid-template-columns:minmax(250px,330px) 1fr;grid-auto-rows:min-content;column-gap:28px;row-gap:10px;align-content:start;align-items:start}
+  #game>*{grid-column:1}
+  #game>.scene{grid-column:2;grid-row:1 / span 5;align-self:start}
+  .scene .board-wrap{width:min(100%,calc(var(--vh) - 70px))}
+  #game[data-arena="archery"] .scene{--sceneH:clamp(380px,calc(var(--vh) - 40px),900px)}
+}
+
+/* Chế độ nhẹ (tự bật trên máy chậm): bỏ các hoạt cảnh nền và vòng sáng */
+body.lite::before,body.lite .board-wrap::before,body.lite .hero .logo,body.lite .cell.win img,body.lite .i-logo{animation:none}
+body.lite #winFx .ring{display:none}

@@ -17,8 +17,6 @@ const CONFIG = {
   // Dán link Apps Script vào đây để data chảy về Google Sheet (xem tools/HUONG-DAN-GOOGLE-SHEET.md)
   // Nơi lưu data: Supabase (khóa công khai "anon/publishable" đặt vào key; khóa này vốn để cho web dùng, quyền chỉ gồm 2 hàm ghi() và bang_vang_hom_nay()).
   supabase: { url: 'https://zcqcigmmbmuoxhsfwuyb.supabase.co', key: 'sb_publishable_XPl3VOgRv3YwbeHHntNOoA_t7x4AXTS' },
-  // Dự phòng cũ (Google Sheet qua Apps Script), chỉ dùng khi Supabase chưa có key
-  sheetUrl: 'https://script.google.com/macros/s/AKfycbx3pKc0ixYv2UJg0wSRFT0pqvSwxgi-Vw-AhOHT0OCMl9LvGGWyp_eruihiv543b839/exec',
   points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20, lose: 2 },     // lose: điểm cố gắng khi thua, để thua vẫn thấy mình tiến lên
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
   // Nhạc nền: đặt file MP3 vào thư mục assets rồi ghi đường dẫn vào đây, ví dụ 'assets/nhac-teaser.mp3'. Để trống là không có nhạc.
@@ -41,6 +39,8 @@ const CONFIG = {
 };
 const PIECE = { X: 'assets/x.webp', O: 'assets/o.webp' };
 const PACK = { X: 'assets/pack-x.webp', O: 'assets/pack-o.webp' };
+const FXL = { X: 'assets/fx-x.webp', O: 'assets/fx-o.webp' };            // chữ đã vẽ sẵn quầng sáng (cho màn thắng)
+const FXP = { X: 'assets/fx-pack-x.webp', O: 'assets/fx-pack-o.webp' };
 const KID_AGES = ['6-9', '10-14'];   // nhóm tuổi nhỏ: câu trả lời không gắn mã người chơi
 const other = p => p === 'X' ? 'O' : 'X';
 const $ = id => document.getElementById(id);
@@ -76,7 +76,7 @@ const Track = {
     p.queue.push(row); if (p.queue.length > 300) p.queue.shift();
     Store.save(); this.flush();
   },
-  ready(){ return !!(CONFIG.supabase.key || CONFIG.sheetUrl); },
+  ready(){ return !!CONFIG.supabase.key; },
   // Gửi tối đa 50 dòng mỗi lượt. Chỉ xóa khỏi hàng chờ khi máy chủ báo đã lưu; lỗi thì chờ lâu dần (có ngẫu nhiên) rồi gửi lại.
   flush(){
     const p = Store.p;
@@ -88,17 +88,11 @@ const Track = {
       if (ok){ p.queue = p.queue.slice(batch.length); Store.save(); this.fails = 0; if (p.queue.length) this.flush(); }
       else { this.fails = Math.min(this.fails + 1, 6); this.timer = setTimeout(() => this.flush(), Math.min(60000, 2000 * 2 ** this.fails) * (.7 + Math.random() * .6)); }
     };
-    if (sb.key){
-      fetch(sb.url + '/rest/v1/rpc/ghi', { method: 'POST', keepalive: true,
-        headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key },
-        body: JSON.stringify({ rows: batch }) })
-        .then(r => r.ok ? r.json() : Promise.reject(r.status))
-        .then(v => done(v === 'ok'), () => done(false));
-    } else {
-      // text/plain + no-cors: cách gửi mà Apps Script nhận được từ web tĩnh (không biết được có lưu thành công hay không)
-      fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(batch), keepalive: true })
-        .then(() => done(true), () => done(false));
-    }
+    fetch(sb.url + '/rest/v1/rpc/ghi', { method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key },
+      body: JSON.stringify({ rows: batch }) })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(v => done(v === 'ok'), () => done(false));
   }
 };
 
@@ -160,6 +154,19 @@ const Sfx = {
   lose(){ if (this.file('lose')) return; [392, 330, 262].forEach((f, i) => this.tone(f, .26, 'sine', .13, i * .2)); }
 };
 
+/* 4a2. Perf – nếu máy chạy dưới khoảng 40 khung hình/giây thì tự bật "chế độ nhẹ": bỏ pháo giấy, vòng sáng, nền nhấp nháy */
+const Perf = {
+  lite: false, tries: 0,
+  watch(ms){
+    if (this.lite || this.tries++ > 3) return;
+    let last = performance.now(), n = 0, slow = 0; const t0 = last;
+    const f = now => { const d = now - last; last = now; n++; if (d > 28) slow++;
+      if (now - t0 < ms) requestAnimationFrame(f); else if (n > 20 && slow / n > .3) this.set(true); };
+    requestAnimationFrame(f);
+  },
+  set(v){ this.lite = v; document.body.classList.toggle('lite', v); }
+};
+
 /* 4b. Fx – pháo giấy, tia văng, rung bàn */
 const Fx = {
   parts: [], running: false,
@@ -179,15 +186,16 @@ const Fx = {
     if (this.parts.length) requestAnimationFrame(() => this.tick()); else { this.running = false; g.clearRect(0, 0, this.cv.width, this.cv.height); }
   },
   confetti(){
+    if (Perf.lite) return;
     const colors = ['#ffd42e', '#f47a1c', '#2aa6ff', '#0b4fc4', '#ffffff', '#d9390f'];
-    const mk = d => Array.from({ length: 70 }, () => ({ x: Math.random() * innerWidth, y: -20 - Math.random() * 200 - d, vx: (Math.random() - .5) * 5, vy: 2 + Math.random() * 4,
+    const mk = d => Array.from({ length: 45 }, () => ({ x: Math.random() * innerWidth, y: -20 - Math.random() * 200 - d, vx: (Math.random() - .5) * 5, vy: 2 + Math.random() * 4,
       grav: .08, rot: Math.random() * 6, spin: (Math.random() - .5) * .4, size: 8 + Math.random() * 8, color: colors[Math.floor(Math.random() * colors.length)], life: 260 }));
     this.add(mk(0)); setTimeout(() => this.add(mk(100)), 350);
   },
   // X: syrup văng mạnh · O: seasoning rắc nhẹ
   burst(x, y, p){
     const colors = p === 'X' ? ['#2aa6ff', '#8fe1ff', '#7a3b00', '#c8791a'] : ['#ffd42e', '#fff3a6', '#f47a1c', '#ffffff'];
-    const n = p === 'X' ? 22 : 16, sp = p === 'X' ? 8 : 4.5;
+    const n = (p === 'X' ? 22 : 16) / (Perf.lite ? 2 : 1), sp = p === 'X' ? 8 : 4.5;
     this.add(Array.from({ length: n }, () => { const a = Math.random() * 6.28, v = (0.4 + Math.random() * .6) * sp;
       return { x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, grav: .35, rot: 0, spin: .2, size: 5 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)], life: 38, round: true }; }));
   },
@@ -228,11 +236,9 @@ const Board = {
   data: null, at: 0,
   load(){
     const sb = CONFIG.supabase;
-    if (!(sb.key || CONFIG.sheetUrl) || Date.now() - this.at < 60000) return;     // mỗi phút hỏi tối đa 1 lần
+    if (!sb.key || Date.now() - this.at < 60000) return;     // mỗi phút hỏi tối đa 1 lần
     this.at = Date.now();
-    const req = sb.key
-      ? fetch(sb.url + '/rest/v1/rpc/bang_vang_hom_nay', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key }, body: '{}' })
-      : fetch(CONFIG.sheetUrl + '?board=1');
+    const req = fetch(sb.url + '/rest/v1/rpc/bang_vang_hom_nay', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key }, body: '{}' });
     req.then(r => r.json()).then(d => {
       if (d && Number.isFinite(d.X) && Number.isFinite(d.O)){ this.data = { X: d.X, O: d.O }; this.show(); }
     }).catch(() => {});
@@ -430,6 +436,7 @@ const Game = {
 
   setup(opts){ Object.assign(this, opts); this.n0 = this.n; this.vanish = this.n === 3; this.score = { X: 0, O: 0 }; this.starter = 'X'; },
   start(){
+    Perf.watch(1800);        // đo lại khi bắt đầu ván, phòng trường hợp lúc mở trang máy còn bận
     clearTimeout(this.botTimer); Arena.stop();
     if (this.n0) this.n = this.n0;
     this.board = Array(this.n * this.n).fill(null); this.q = { X: [], O: [] };
@@ -511,7 +518,7 @@ const Game = {
       if (this.result) this.finish();
     } else if (ev.type === 'miss'){
       Sfx.miss(); const r = $('board').getBoundingClientRect(); Fx.pop('TRƯỢT!', r.left + r.width / 2, r.top + r.height / 2);
-    } else if (ev.type === 'start'){ $('result').hidden = true; $('winFx').hidden = true; if (this.t0 === 0) this.t0 = Date.now(); }
+    } else if (ev.type === 'start'){ $('result').hidden = true; UI.winFxHide(); if (this.t0 === 0) this.t0 = Date.now(); }
     Arena.sync();
   },
 
@@ -776,7 +783,7 @@ const UI = {
 
   home(){
     clearTimeout(Game.botTimer); Arena.stop(); Arena.setSpin(false); Game.over = true;
-    $('game').hidden = true; $('home').hidden = false; $('result').hidden = true; $('winFx').hidden = true;
+    $('game').hidden = true; $('home').hidden = false; $('result').hidden = true; UI.winFxHide();
     const p = Store.p, t = p.team || 'X';
     document.body.dataset.team = t;
     $('meImg').src = PACK[t]; $('meTeam').textContent = 'Phe ' + t;
@@ -844,11 +851,13 @@ const UI = {
       : fading >= 0 && mine ? 'Quân đang nhấp nháy sẽ biến mất khi bạn đặt quân mới.' : '';
   },
   winFx(winner){
-    const el = $('winFx'); el.hidden = true; el.dataset.w = winner; $('winFxImg').src = PIECE[winner]; $('winFxPack').src = PACK[winner];
-    void el.offsetWidth; el.hidden = false;                 // bật lại để hoạt cảnh chạy từ đầu
-    clearTimeout(this.winTimer); this.winTimer = setTimeout(() => { el.hidden = true; }, 2550);
+    const el = $('winFx'); el.hidden = true; el.dataset.w = winner; $('winFxImg').src = FXL[winner]; $('winFxPack').src = FXP[winner];
+    void el.offsetWidth; el.hidden = false; document.body.classList.add('fxon');     // bật lại để hoạt cảnh chạy từ đầu; tạm dừng các hoạt cảnh khác
+    clearTimeout(this.winTimer); this.winTimer = setTimeout(() => this.winFxHide(), 2550);
     setTimeout(() => { if (!el.hidden) Sfx.place(winner); }, 1700);      // tiếng chữ rơi vào gói
   },
+  winFxHide(){ clearTimeout(this.winTimer); $('winFx').hidden = true; document.body.classList.remove('fxon'); },
+
   cellCenter(i){ const c = $('board').children[i]; if (!c) return { x: innerWidth / 2, y: innerHeight / 2 }; const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; },
 
   result(outcome, r, gain){
@@ -981,7 +990,7 @@ function wire(){
 }
 
 /* Khởi động */
-Store.load(); Sfx.setup(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush(); Board.show();
+Store.load(); Sfx.setup(); Fx.init(); wire(); Intro.wire(); Perf.watch(2500); UI.home(); Track.flush(); Board.show();
 (() => {  // vào bằng link mời: ?room=ABCD
   const q = new URLSearchParams(location.search), room = q.get('room');
   if (!room) return;

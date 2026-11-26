@@ -5,7 +5,7 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 ## Có gì trong game
 - **Teaser mở đầu 15 giây:** chạm để vào, rồi 6 cảnh tự chạy (đối đầu X vs O, Tayo X, Tayo O, giương cung bắn, nối quân thắng, bảng vàng và nút Chơi ngay). Có nút "Bỏ qua" ở góc trên. Chữ quảng cáo sửa trong `index.html` (khối `#intro`), mốc giây sửa ở `Intro.CUES` trong `js/app.js`.
 - **Sảnh 3 bước:** Hình thức chơi (Với máy, Với bạn) → Mức độ (Dễ, Vừa, Khó) → Sân và bàn cờ → Vào trận. Chơi với bạn thì mức độ đổi luật ở sân bắn cung: gió mạnh dần, mức Khó bia quay 2 mặt.
-- **Bảng vàng X vs O:** số trận thắng của mỗi phe trong ngày, làm mới mỗi ngày, đọc từ Google Sheet (tab `bang_vang`).
+- **Bảng vàng X vs O:** số trận thắng của mỗi phe trong ngày, làm mới mỗi ngày, lưu và đọc từ Supabase (bảng `bang_vang`).
 - **Nhạc và âm thanh làm từ file** (thư mục `assets/audio/`): `teaser.mp3` là nhạc nền teaser (60 giây, lặp liền mạch, các cảnh teaser khớp theo ô nhịp 1,5 giây); `win.mp3` phát khi thắng ván; `lose.mp3` khi thua ván; `bonus.mp3` khi nhận điểm thưởng khảo sát; `unlock.mp3` khi bạn bè vào phòng và khi chọn phe. Đổi file hoặc âm lượng ở `CONFIG.music`, `CONFIG.sfx`, `CONFIG.musicVolume`, `CONFIG.sfxVolume` trong `js/app.js`. Để trống một mục thì game dùng tiếng tự tạo thay thế.
 - **Khảo sát:** mỗi lần vào game hỏi 1 lần sau ván đầu; ai đã trả lời thì không hỏi lại.
 - **Chọn phe X hoặc O.** Giao diện đổi màu theo phe, thắng thì cộng điểm cho phe.
@@ -17,7 +17,7 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 - **Màn thắng:** chữ X hoặc O của bên thắng phóng to, rồi thu nhỏ bay vào gói bánh của phe đó, sau đó hiện kết quả.
 - **Âm thanh và hiệu ứng:** tiếng đặt quân, bắn cung, thắng thua; pháo giấy, tia văng, rung bàn.
 - **Khảo sát sau ván đầu:** nhóm tuổi, giới tính, chấm điểm Tayo X và Tayo O (5 emoji).
-- **Data về Google Sheet:** xem `tools/HUONG-DAN-GOOGLE-SHEET.md`.
+- **Data về Supabase:** khảo sát, ván chơi và sự kiện được gửi về Supabase (có xác nhận đã lưu, gửi lại khi lỗi). Cách tạo bảng: `tools/supabase.sql`. Game không còn gửi gì về Google Sheet.
 
 ## Thư mục
 | Đường dẫn | Nội dung |
@@ -27,7 +27,7 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 | `js/app.js` | Toàn bộ logic. Chỉnh nhanh ở `CONFIG` đầu file |
 | `assets/` | Logo, slogan, quân X/O. Đổi hình: thay file cùng tên |
 | `vendor/peerjs.min.js` | Thư viện kết nối 2 máy (PeerJS, giấy phép MIT) |
-| `tools/` | Code nhận data cho Google Sheet và hướng dẫn |
+| `tools/supabase.sql` | Lệnh tạo bảng và hai hàm ghi/đọc data trên Supabase |
 | `.github/workflows/` | Lịch tự động 3 ngày một lần gọi vào Supabase để dự án gói miễn phí không bị tạm ngưng (chỉ chạy khi nằm trên nhánh `main`) |
 
 ## Chơi với bạn hoạt động thế nào
@@ -54,3 +54,8 @@ select mode, size, arena, count(*) as so_van,
 from van_dau where mode like 'may_%'
 group by mode, size, arena order by mode, size;
 ```
+
+## Hiệu năng và kích thước bàn cờ
+- Màn hình thắng/thua chỉ dùng chuyển động nhẹ (hình đã vẽ sẵn quầng sáng `assets/fx-*.webp`), và tự tạm dừng các hoạt cảnh khác khi đang chạy.
+- Máy chạy dưới khoảng 40 khung hình/giây sẽ tự bật chế độ nhẹ (bỏ pháo giấy, vòng sáng, nền nhấp nháy).
+- Bàn cờ tự to theo màn hình. Máy tính bảng nằm ngang chia 2 cột: thanh điều khiển bên trái, bàn cờ chiếm cả chiều cao bên phải.
