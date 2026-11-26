@@ -6,7 +6,7 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 - **Teaser mở đầu 15 giây:** chạm để vào, rồi 6 cảnh tự chạy (đối đầu X vs O, Tayo X, Tayo O, giương cung bắn, nối quân thắng, bảng vàng và nút Chơi ngay). Có nút "Bỏ qua" ở góc trên. Chữ quảng cáo sửa trong `index.html` (khối `#intro`), mốc giây sửa ở `Intro.CUES` trong `js/app.js`.
 - **Sảnh 3 bước:** Hình thức chơi (Với máy, Với bạn) → Mức độ (Dễ, Vừa, Khó) → Sân và bàn cờ → Vào trận. Chơi với bạn thì mức độ đổi luật ở sân bắn cung: gió mạnh dần, mức Khó bia quay 2 mặt.
 - **Bảng vàng X vs O:** số trận thắng của mỗi phe trong ngày, làm mới mỗi ngày, đọc từ Google Sheet (tab `bang_vang`).
-- **Nhạc nền** cho teaser và sảnh: đặt file MP3 vào `assets/` rồi ghi đường dẫn vào `CONFIG.music` trong `js/app.js`.
+- **Nhạc và âm thanh làm từ file** (thư mục `assets/audio/`): `teaser.mp3` là nhạc nền teaser (60 giây, lặp liền mạch, các cảnh teaser khớp theo ô nhịp 1,5 giây); `win.mp3` phát khi thắng ván; `bonus.mp3` khi nhận điểm thưởng khảo sát; `unlock.mp3` khi bạn bè vào phòng và khi chọn phe. Đổi file hoặc âm lượng ở `CONFIG.music`, `CONFIG.sfx`, `CONFIG.musicVolume`, `CONFIG.sfxVolume` trong `js/app.js`. Để trống một mục thì game dùng tiếng tự tạo thay thế.
 - **Khảo sát:** mỗi lần vào game hỏi 1 lần sau ván đầu; ai đã trả lời thì không hỏi lại.
 - **Chọn phe X hoặc O.** Giao diện đổi màu theo phe, thắng thì cộng điểm cho phe.
 - **Sân bắn cung (sân chính):** góc nhìn người bắn, bàn cờ dựng ở xa. Chạm giữ rồi kéo xuống để giương cung, kéo trái phải canh hướng, kéo sâu để bắn cao, thả tay để bắn. Có gió và tay rung nhẹ. Ra ngoài hoặc trúng ô đã có quân là mất lượt.

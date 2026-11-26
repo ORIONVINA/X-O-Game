@@ -22,8 +22,11 @@ const CONFIG = {
   points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
   // Nhạc nền: đặt file MP3 vào thư mục assets rồi ghi đường dẫn vào đây, ví dụ 'assets/nhac-teaser.mp3'. Để trống là không có nhạc.
-  music: { teaser: '', lobby: '' },
-  musicVolume: 0.35,
+  music: { teaser: 'assets/audio/teaser.mp3', lobby: '' },
+  musicVolume: 0.7,                 // 0 đến 1, âm lượng nhạc nền
+  // Âm thanh làm từ file (đặt trong assets/audio/). Để trống một mục thì game dùng tiếng tự tạo thay thế.
+  sfx: { win: 'assets/audio/win.mp3', bonus: 'assets/audio/bonus.mp3', unlock: 'assets/audio/unlock.mp3' },
+  sfxVolume: 0.8,                   // 0 đến 1, âm lượng các tiếng làm từ file
   botDelay: 450,
   growMax: 14,                   // bàn mở rộng: lớn nhất 14×14 để ô không quá nhỏ trên điện thoại
   keep: 3,                       // bàn 3×3: mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất
@@ -99,11 +102,32 @@ const Track = {
 
 /* 4a. Sfx – âm thanh tổng hợp bằng WebAudio */
 const Sfx = {
-  ctx: null,
+  ctx: null, buf: {},
+  getCtx(){
+    if (!this.ctx){
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.out = this.ctx.createGain(); this.out.gain.value = CONFIG.volume; this.out.connect(this.ctx.destination);
+    }
+    return this.ctx;
+  },
   ac(){
     if (!Store.p.sound) return null;
-    try { if (!this.ctx){ this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.out = this.ctx.createGain(); this.out.gain.value = CONFIG.volume; this.out.connect(this.ctx.destination); } if (this.ctx.state === 'suspended') this.ctx.resume(); } catch { return null; }
-    return this.ctx;
+    try { const c = this.getCtx(); if (c.state === 'suspended') c.resume(); return c; } catch { return null; }
+  },
+  // Tải sẵn và giải mã các file âm thanh ngay khi mở trang, để lúc cần là phát được liền
+  setup(){
+    let c; try { c = this.getCtx(); } catch { return; }
+    const urls = [CONFIG.music.teaser, CONFIG.music.lobby, ...Object.values(CONFIG.sfx)].filter(Boolean);
+    urls.forEach(u => fetch(u).then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+      .then(ab => new Promise((ok, no) => c.decodeAudioData(ab, ok, no)))
+      .then(b => { this.buf[u] = b; }).catch(() => {}));
+  },
+  has(name){ return !!(CONFIG.sfx[name] && this.buf[CONFIG.sfx[name]]); },
+  file(name){
+    const c = this.ac(), b = this.buf[CONFIG.sfx[name]];
+    if (!c || !b) return false;
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = b; g.gain.value = CONFIG.sfxVolume;
+    s.connect(g).connect(c.destination); s.start(); return true;
   },
   tone(f, dur, type = 'sine', vol = .18, at = 0, to){
     const c = this.ac(); if (!c) return;
@@ -127,8 +151,10 @@ const Sfx = {
   shoot(){ this.noise(.14, .1, 0, 1400); this.tone(620, .16, 'sine', .08, 0, 240); },
   miss(){ this.tone(260, .22, 'sine', .14, 0, 130); },
   vanish(){ this.tone(620, .18, 'sine', .06, 0, 240); },
-  join(){ this.tone(523, .1, 'sine', .14); this.tone(784, .16, 'sine', .14, .1); },
-  win(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .2, 'triangle', .13, i * .11)); this.tone(1319, .45, 'sine', .12, .44); },
+  join(){ if (this.file('unlock')) return; this.tone(523, .1, 'sine', .14); this.tone(784, .16, 'sine', .14, .1); },
+  win(){ if (this.file('win')) return; this.synthWin(); },
+  bonus(){ if (this.file('bonus')) return; this.synthWin(); },
+  synthWin(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .2, 'triangle', .13, i * .11)); this.tone(1319, .45, 'sine', .12, .44); },
   lose(){ [392, 330, 262].forEach((f, i) => this.tone(f, .26, 'sine', .13, i * .2)); }
 };
 
@@ -176,16 +202,23 @@ const Fx = {
 
 /* 4c. Music – nhạc nền cho teaser và sảnh (tắt khi vào trận) */
 const Music = {
-  el: null, cur: '',
+  src: null, gain: null, cur: '',
+  // Trả về true nếu nhạc đã bắt đầu phát (file đã tải xong và âm thanh đang bật). Nhạc lặp liền mạch.
   play(name){
-    const src = CONFIG.music[name];
-    if (!src){ this.stop(); return; }
-    if (this.cur === name && this.el && !this.el.paused) return;
-    if (this.cur !== name){ this.stop(); this.cur = name; this.el = new Audio(src); this.el.loop = name !== 'teaser'; this.el.volume = CONFIG.musicVolume; }
-    if (Store.p.sound) this.el.play().catch(() => {});       // trình duyệt chỉ cho phát sau khi người chơi chạm màn hình
+    const url = CONFIG.music[name], c = Sfx.ac(), b = url && Sfx.buf[url];
+    if (!c || !b){ this.stop(); return false; }
+    if (this.cur === name && this.src) return true;
+    this.stop();
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = b; s.loop = true; g.gain.value = CONFIG.musicVolume;
+    s.connect(g).connect(c.destination); s.start(); this.src = s; this.gain = g; this.cur = name; return true;
   },
-  stop(){ if (this.el) this.el.pause(); this.el = null; this.cur = ''; },
-  sync(){ if (!this.el) return; if (Store.p.sound && !document.hidden) this.el.play().catch(() => {}); else this.el.pause(); }
+  fadeOut(sec = .6){
+    if (!this.src) return;
+    const c = Sfx.ctx, g = this.gain, s = this.src; this.src = null; this.gain = null; this.cur = '';
+    g.gain.setValueAtTime(g.gain.value, c.currentTime); g.gain.linearRampToValueAtTime(0, c.currentTime + sec); s.stop(c.currentTime + sec + .05);
+  },
+  stop(){ try { if (this.src) this.src.stop(); } catch {} this.src = null; this.gain = null; this.cur = ''; },
+  sync(){ const c = Sfx.ctx; if (!c) return; if (Store.p.sound && !document.hidden) c.resume(); else c.suspend(); }
 };
 
 /* 4d. Board – bảng vàng X vs O: số trận thắng của mỗi phe trong ngày, lấy từ Google Sheet */
@@ -495,8 +528,9 @@ const Game = {
     // 1) chữ X hoặc O của bên thắng phóng to giữa màn hình  2) rồi mới hiện bảng kết quả
     setTimeout(() => {
       if (Game.result !== r) return;
-      UI.winFx(r.winner); Sfx.boom();
-      if (outcome === 'lose') setTimeout(() => Sfx.lose(), 500); else { setTimeout(() => Sfx.win(), 350); Fx.confetti(); }
+      UI.winFx(r.winner);
+      if (outcome === 'lose'){ Sfx.boom(); setTimeout(() => Sfx.lose(), 500); }
+      else { if (!Sfx.has('win')) Sfx.boom(); Sfx.win(); Fx.confetti(); }       // tiếng thắng phát đúng lúc chữ X/O bắt đầu phóng to
     }, 500);
     setTimeout(() => { if (Game.result === r){ UI.result(outcome, r, gain); if (!$('game').hidden) UI.surveyMaybe(); } }, 2900);
   }
@@ -837,7 +871,7 @@ const UI = {
     const a = this.ans, p = Store.p;
     Track.send('khao_sat', { age: a.age, gender: a.gender, rateX: a.rateX, rateO: a.rateO }, KID_AGES.includes(a.age));
     p.survey = 'done'; p.points += CONFIG.points.survey; Store.save();
-    $('survey').hidden = true; Sfx.win(); Fx.confetti();
+    $('survey').hidden = true; Sfx.bonus(); Fx.confetti();
     this.toast(`Cảm ơn bạn! +${CONFIG.points.survey} điểm cho Phe ${p.team || 'X'}`);
     if (!$('home').hidden) this.home();
   }
@@ -845,21 +879,21 @@ const UI = {
 
 /* Teaser mở đầu: chạm 1 lần để vào, rồi 6 cảnh tự chạy trong 15 giây, kết thúc ở nút "Chơi ngay". Có nút "Bỏ qua" ở góc trên. */
 const Intro = {
-  step: 0, timers: [], done: false,
-  CUES: [0, 2000, 3500, 5000, 9000, 12000],        // mốc bắt đầu của cảnh 1..6 (mili giây)
+  step: 0, timers: [], done: false, music: false,
+  CUES: [0, 3000, 4500, 6000, 9000, 12000],        // mốc bắt đầu của cảnh 1..6 (mili giây), khớp nhịp nhạc: 1 ô nhịp = 1,5 giây, đoạn cao trào vào ở giây 6
   at(ms, fn){ this.timers.push(setTimeout(fn, ms)); },
   go(n){ this.step = n; $('intro').dataset.step = n; },
   start(){
     if (this.step !== 0 || this.done) return;
-    Music.play('teaser'); Board.show();
+    this.music = Music.play('teaser'); Board.show();     // có nhạc thì nhạc dẫn nhịp, bỏ các tiếng tự tạo đè lên
     this.CUES.forEach((ms, i) => this.at(ms, () => { this.go(i + 1); this.cue(i + 1); }));
     const bar = $('introBar'); bar.style.transition = 'width 15s linear'; requestAnimationFrame(() => { bar.style.width = '100%'; });
   },
   cue(n){
-    if (n <= 3) Sfx.boom();
+    if (n <= 3 && !this.music) Sfx.boom();
     if (n === 4) this.demo();
-    if (n === 5){ Sfx.win(); this.at(2150, () => Sfx.place('X')); }
-    if (n === 6) Sfx.join();
+    if (n === 5){ if (!this.music) Sfx.win(); this.at(2150, () => Sfx.place('X')); }
+    if (n === 6 && !this.music) Sfx.join();
   },
   // cảnh 4: giương cung bắn quân X vào ô, rồi O bắn lại
   demo(){
@@ -885,11 +919,11 @@ const Intro = {
       };
       requestAnimationFrame(step);
     });
-    shoot(2, 'X', 150, 1200); shoot(6, 'O', 2100, 900);
+    shoot(2, 'X', 100, 900); shoot(6, 'O', 1500, 800);
   },
   end(how){
     if (this.done) return; this.done = true; this.timers.forEach(clearTimeout);
-    $('intro').hidden = true; Track.send('mo_dau', { role: how }); Music.play('lobby');
+    $('intro').hidden = true; Track.send('mo_dau', { role: how }); Music.fadeOut(); Music.play('lobby');
   },
   wire(){ $('intro').onclick = e => { if (e.target.closest('#introSkip')) return this.end('bo_qua'); if (e.target.closest('#introPlay')) return this.end('xem_het'); this.start(); }; }
 };
@@ -941,7 +975,7 @@ function wire(){
 }
 
 /* Khởi động */
-Store.load(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush(); Board.show();
+Store.load(); Sfx.setup(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush(); Board.show();
 (() => {  // vào bằng link mời: ?room=ABCD
   const q = new URLSearchParams(location.search), room = q.get('room');
   if (!room) return;
