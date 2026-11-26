@@ -28,6 +28,7 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 | `assets/` | Logo, slogan, quân X/O. Đổi hình: thay file cùng tên |
 | `vendor/peerjs.min.js` | Thư viện kết nối 2 máy (PeerJS, giấy phép MIT) |
 | `tools/` | Code nhận data cho Google Sheet và hướng dẫn |
+| `.github/workflows/` | Lịch tự động 3 ngày một lần gọi vào Supabase để dự án gói miễn phí không bị tạm ngưng (chỉ chạy khi nằm trên nhánh `main`) |
 
 ## Chơi với bạn hoạt động thế nào
 Hai máy nối trực tiếp với nhau qua PeerJS, dùng máy chủ ghép nối miễn phí của PeerJS. Không cần máy chủ riêng.
