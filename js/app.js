@@ -15,15 +15,26 @@
 /* 1. CONFIG */
 const CONFIG = {
   // Dán link Apps Script vào đây để data chảy về Google Sheet (xem tools/HUONG-DAN-GOOGLE-SHEET.md)
+  // Nơi lưu data: Supabase (khóa công khai "anon/publishable" đặt vào key; khóa này vốn để cho web dùng, quyền chỉ gồm 2 hàm ghi() và bang_vang_hom_nay()).
+  supabase: { url: 'https://zcqcigmmbmuoxhsfwuyb.supabase.co', key: 'sb_publishable_XPl3VOgRv3YwbeHHntNOoA_t7x4AXTS' },
+  // Dự phòng cũ (Google Sheet qua Apps Script), chỉ dùng khi Supabase chưa có key
   sheetUrl: 'https://script.google.com/macros/s/AKfycbx3pKc0ixYv2UJg0wSRFT0pqvSwxgi-Vw-AhOHT0OCMl9LvGGWyp_eruihiv543b839/exec',
-  points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20 },
+  points: { easy: 5, medium: 10, hard: 20, online: 10, survey: 20, lose: 2 },     // lose: điểm cố gắng khi thua, để thua vẫn thấy mình tiến lên
   volume: 0.5,                   // âm lượng chung của game, 0 đến 1
+  // Nhạc nền: đặt file MP3 vào thư mục assets rồi ghi đường dẫn vào đây, ví dụ 'assets/nhac-teaser.mp3'. Để trống là không có nhạc.
+  music: { teaser: 'assets/audio/teaser.mp3', lobby: '' },
+  musicVolume: 0.7,                 // 0 đến 1, âm lượng nhạc nền
+  // Âm thanh làm từ file (đặt trong assets/audio/). Để trống một mục thì game dùng tiếng tự tạo thay thế.
+  sfx: { win: 'assets/audio/win.mp3', lose: 'assets/audio/lose.mp3', bonus: 'assets/audio/bonus.mp3', unlock: 'assets/audio/unlock.mp3' },
+  sfxVolume: 0.8,                   // 0 đến 1, âm lượng các tiếng làm từ file
   botDelay: 450,
   growMax: 14,                   // bàn mở rộng: lớn nhất 14×14 để ô không quá nhỏ trên điện thoại
   keep: 3,                       // bàn 3×3: mỗi người chỉ giữ 3 quân, quân cũ nhất biến mất
   storageKey: 'xo_profile_v2',
   roomPrefix: 'tayoxo-',
   peerOptions: window.XO_PEER_OPTIONS || {},
+  // Mục tiêu tỉ lệ NGƯỜI thắng máy (ước lượng, cần chỉnh theo số liệu thật sau khi mở): Dễ khoảng 65-75%, Vừa khoảng 45-55%, Khó khoảng 20-30%.
+  blunder: { easy: 0.65, medium: 0.35, hard: 0.18 },     // xác suất máy đi nhầm (đi ngẫu nhiên) ở mỗi mức
   aim: { easy: 0.65, medium: 0.9, hard: 0.97 },   // độ chính xác của máy ở sân bắn cung
   wind: { easy: 0.35, medium: 0.6, hard: 0.8 },    // gió mạnh nhất (tính theo ô)
   spinSeconds: 7                                    // sân bắn cung cấp Khó: bia quay 1 vòng mất bấy nhiêu giây
@@ -55,34 +66,70 @@ const Store = {
 
 /* 3. Track – mỗi sự kiện là 1 dòng trong Google Sheet */
 const Track = {
+  busy: false, fails: 0, timer: 0,
   send(event, data, anonymous){
     const p = Store.p;
     const row = Object.assign({ ts: new Date().toISOString(), event,
+      rid: (p.uid || 'x') + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),   // mã riêng từng dòng: gửi lại không bị lưu trùng
       uid: anonymous ? '' : p.uid, src: p.src, team: p.team || '',
       device: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop' }, data);
-    p.queue.push(row); if (p.queue.length > 200) p.queue.shift();
+    p.queue.push(row); if (p.queue.length > 300) p.queue.shift();
     Store.save(); this.flush();
   },
-  busy: false,
+  ready(){ return !!(CONFIG.supabase.key || CONFIG.sheetUrl); },
+  // Gửi tối đa 50 dòng mỗi lượt. Chỉ xóa khỏi hàng chờ khi máy chủ báo đã lưu; lỗi thì chờ lâu dần (có ngẫu nhiên) rồi gửi lại.
   flush(){
     const p = Store.p;
-    if (!CONFIG.sheetUrl || !p.queue.length || this.busy) return;   // đang gửi dở thì chờ, tránh gửi trùng
-    this.busy = true;
-    const batch = p.queue.slice();
-    // text/plain + no-cors: cách gửi mà Apps Script nhận được từ web tĩnh
-    fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(batch), keepalive: true })
-      .then(() => { p.queue = p.queue.slice(batch.length); Store.save(); this.busy = false; this.flush(); })
-      .catch(() => { this.busy = false; });      // lỗi mạng: giữ lại, lần sau gửi bù
+    if (!this.ready() || !p.queue.length || this.busy) return;
+    this.busy = true; clearTimeout(this.timer);
+    const batch = p.queue.slice(0, 50), sb = CONFIG.supabase;
+    const done = ok => {
+      this.busy = false;
+      if (ok){ p.queue = p.queue.slice(batch.length); Store.save(); this.fails = 0; if (p.queue.length) this.flush(); }
+      else { this.fails = Math.min(this.fails + 1, 6); this.timer = setTimeout(() => this.flush(), Math.min(60000, 2000 * 2 ** this.fails) * (.7 + Math.random() * .6)); }
+    };
+    if (sb.key){
+      fetch(sb.url + '/rest/v1/rpc/ghi', { method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key },
+        body: JSON.stringify({ rows: batch }) })
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(v => done(v === 'ok'), () => done(false));
+    } else {
+      // text/plain + no-cors: cách gửi mà Apps Script nhận được từ web tĩnh (không biết được có lưu thành công hay không)
+      fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(batch), keepalive: true })
+        .then(() => done(true), () => done(false));
+    }
   }
 };
 
 /* 4a. Sfx – âm thanh tổng hợp bằng WebAudio */
 const Sfx = {
-  ctx: null,
+  ctx: null, buf: {},
+  getCtx(){
+    if (!this.ctx){
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.out = this.ctx.createGain(); this.out.gain.value = CONFIG.volume; this.out.connect(this.ctx.destination);
+    }
+    return this.ctx;
+  },
   ac(){
     if (!Store.p.sound) return null;
-    try { if (!this.ctx){ this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.out = this.ctx.createGain(); this.out.gain.value = CONFIG.volume; this.out.connect(this.ctx.destination); } if (this.ctx.state === 'suspended') this.ctx.resume(); } catch { return null; }
-    return this.ctx;
+    try { const c = this.getCtx(); if (c.state === 'suspended') c.resume(); return c; } catch { return null; }
+  },
+  // Tải sẵn và giải mã các file âm thanh ngay khi mở trang, để lúc cần là phát được liền
+  setup(){
+    let c; try { c = this.getCtx(); } catch { return; }
+    const urls = [CONFIG.music.teaser, CONFIG.music.lobby, ...Object.values(CONFIG.sfx)].filter(Boolean);
+    urls.forEach(u => fetch(u).then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+      .then(ab => new Promise((ok, no) => c.decodeAudioData(ab, ok, no)))
+      .then(b => { this.buf[u] = b; }).catch(() => {}));
+  },
+  has(name){ return !!(CONFIG.sfx[name] && this.buf[CONFIG.sfx[name]]); },
+  file(name){
+    const c = this.ac(), b = this.buf[CONFIG.sfx[name]];
+    if (!c || !b) return false;
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = b; g.gain.value = CONFIG.sfxVolume;
+    s.connect(g).connect(c.destination); s.start(); return true;
   },
   tone(f, dur, type = 'sine', vol = .18, at = 0, to){
     const c = this.ac(); if (!c) return;
@@ -106,9 +153,11 @@ const Sfx = {
   shoot(){ this.noise(.14, .1, 0, 1400); this.tone(620, .16, 'sine', .08, 0, 240); },
   miss(){ this.tone(260, .22, 'sine', .14, 0, 130); },
   vanish(){ this.tone(620, .18, 'sine', .06, 0, 240); },
-  join(){ this.tone(523, .1, 'sine', .14); this.tone(784, .16, 'sine', .14, .1); },
-  win(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .2, 'triangle', .13, i * .11)); this.tone(1319, .45, 'sine', .12, .44); },
-  lose(){ [392, 330, 262].forEach((f, i) => this.tone(f, .26, 'sine', .13, i * .2)); }
+  join(){ if (this.file('unlock')) return; this.tone(523, .1, 'sine', .14); this.tone(784, .16, 'sine', .14, .1); },
+  win(){ if (this.file('win')) return; this.synthWin(); },
+  bonus(){ if (this.file('bonus')) return; this.synthWin(); },
+  synthWin(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .2, 'triangle', .13, i * .11)); this.tone(1319, .45, 'sine', .12, .44); },
+  lose(){ if (this.file('lose')) return; [392, 330, 262].forEach((f, i) => this.tone(f, .26, 'sine', .13, i * .2)); }
 };
 
 /* 4b. Fx – pháo giấy, tia văng, rung bàn */
@@ -153,6 +202,56 @@ const Fx = {
   }
 };
 
+/* 4c. Music – nhạc nền cho teaser và sảnh (tắt khi vào trận) */
+const Music = {
+  src: null, gain: null, cur: '',
+  // Trả về true nếu nhạc đã bắt đầu phát (file đã tải xong và âm thanh đang bật). Nhạc lặp liền mạch.
+  play(name){
+    const url = CONFIG.music[name], c = Sfx.ac(), b = url && Sfx.buf[url];
+    if (!c || !b){ this.stop(); return false; }
+    if (this.cur === name && this.src) return true;
+    this.stop();
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = b; s.loop = true; g.gain.value = CONFIG.musicVolume;
+    s.connect(g).connect(c.destination); s.start(); this.src = s; this.gain = g; this.cur = name; return true;
+  },
+  fadeOut(sec = .6){
+    if (!this.src) return;
+    const c = Sfx.ctx, g = this.gain, s = this.src; this.src = null; this.gain = null; this.cur = '';
+    g.gain.setValueAtTime(g.gain.value, c.currentTime); g.gain.linearRampToValueAtTime(0, c.currentTime + sec); s.stop(c.currentTime + sec + .05);
+  },
+  stop(){ try { if (this.src) this.src.stop(); } catch {} this.src = null; this.gain = null; this.cur = ''; },
+  sync(){ const c = Sfx.ctx; if (!c) return; if (Store.p.sound && !document.hidden) c.resume(); else c.suspend(); }
+};
+
+/* 4d. Board – bảng vàng X vs O: số trận thắng của mỗi phe trong ngày, lấy từ Google Sheet */
+const Board = {
+  data: null, at: 0,
+  load(){
+    const sb = CONFIG.supabase;
+    if (!(sb.key || CONFIG.sheetUrl) || Date.now() - this.at < 60000) return;     // mỗi phút hỏi tối đa 1 lần
+    this.at = Date.now();
+    const req = sb.key
+      ? fetch(sb.url + '/rest/v1/rpc/bang_vang_hom_nay', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: sb.key, Authorization: 'Bearer ' + sb.key }, body: '{}' })
+      : fetch(CONFIG.sheetUrl + '?board=1');
+    req.then(r => r.json()).then(d => {
+      if (d && Number.isFinite(d.X) && Number.isFinite(d.O)){ this.data = { X: d.X, O: d.O }; this.show(); }
+    }).catch(() => {});
+  },
+  bump(team){ if (this.data && (team === 'X' || team === 'O')){ this.data[team]++; this.show(); } },   // mình vừa thắng: cộng ngay cho thấy
+  html(){
+    const d = this.data, total = d ? d.X + d.O : 0, px = total ? Math.round(d.X / total * 100) : 50;
+    const foot = !d ? '<div class="gold-foot one"><span>Phe nào sẽ dẫn đầu hôm nay?</span></div>'
+      : !total ? '<div class="gold-foot one"><span>Hôm nay chưa có trận thắng nào. Mở màn đi!</span></div>'
+      : `<div class="gold-foot"><span>Phe X · ${d.X} trận thắng</span><span>${d.O} trận thắng · Phe O</span></div>`;
+    return `<div class="gold-top"><img src="${PIECE.X}" alt="Phe X"><b class="gx">${px}%</b><span class="gold-title">Cuộc chiến X vs O hôm nay</span><b class="go">${100 - px}%</b><img src="${PIECE.O}" alt="Phe O"></div>
+      <div class="tug"><i style="width:${px}%"></i></div>${foot}`;
+  },
+  show(){
+    $('goldIntro').innerHTML = this.html();
+    const h = $('goldHome'); h.hidden = !this.data; if (this.data) h.innerHTML = this.html();   // ở sảnh: chỉ hiện khi đã có số thật
+  }
+};
+
 /* 5. Rules */
 const Rules = {
   // trả về {winner, line} | {draw:true} | null
@@ -191,8 +290,9 @@ const Rules = {
 
 /* 6. AI */
 const AI = {
+  // Mỗi mức có "tỉ lệ đi nhầm" (đi ngẫu nhiên thay vì nước tốt nhất), chỉnh ở CONFIG.blunder
   move(g, level){
-    if (level === 'easy' && Math.random() < 0.6) return this.random(g);
+    if (Math.random() < (CONFIG.blunder[level] || 0)) return this.random(g);
     if (g.vanish) return this.vanish(g, level === 'hard' ? 10 : 6);       // Khó: nhìn xa hơn 4 nước
     return level === 'hard' ? this.deep(g) : this.heuristic(g);
   },
@@ -398,7 +498,7 @@ const Game = {
       }, CONFIG.botDelay);
     }
   },
-  snap(){ const { n, k, vanish, grow, arena, board, q, turn, over, result, score, moves, my } = this; return { n, k, vanish, grow, arena, board, q, turn, over, result, score, moves, host: my }; },
+  snap(){ const { n, k, vanish, grow, arena, level, board, q, turn, over, result, score, moves, my } = this; return { n, k, vanish, grow, arena, level, board, q, turn, over, result, score, moves, host: my }; },
   load(s){ const { host, ...rest } = s; Object.assign(this, rest); this.mode = 'online'; this.remote = true; this.my = other(host); },
 
   show(ev){
@@ -420,19 +520,21 @@ const Game = {
     const outcome = this.mode === 'local' ? 'local' : r.draw ? 'draw' : r.winner === this.my ? 'win' : 'lose';
     let gain = 0;
     if (outcome === 'win') gain = this.mode === 'online' ? CONFIG.points.online : CONFIG.points[this.level];
+    else if (outcome === 'lose') gain = CONFIG.points.lose;
     if (p.lastDay !== d){
       const y = new Date(Date.now() - 864e5).toLocaleDateString('sv');
       p.streak = p.lastDay === y ? p.streak + 1 : 1; p.lastDay = d;
     }
-    p.plays++; p.points += gain; if (outcome === 'win') p.wins++;
+    p.plays++; p.points += gain; if (outcome === 'win'){ p.wins++; Board.bump(p.team); }
     Store.save();
     Track.send('van_dau', { mode: this.mode === 'bot' ? 'may_' + this.level : this.mode, arena: this.arena, size: (this.grow ? 'morong_' : '') + this.n + 'x' + this.n,
       result: outcome, winner: r.winner || '', moves: this.moves, seconds: Math.round((Date.now() - (this.t0 || Date.now())) / 1000), plays: p.plays, streak: p.streak });
     // 1) chữ X hoặc O của bên thắng phóng to giữa màn hình  2) rồi mới hiện bảng kết quả
     setTimeout(() => {
       if (Game.result !== r) return;
-      UI.winFx(r.winner); Sfx.boom();
-      if (outcome === 'lose') setTimeout(() => Sfx.lose(), 500); else { setTimeout(() => Sfx.win(), 350); Fx.confetti(); }
+      UI.winFx(r.winner);
+      if (outcome === 'lose'){ if (Sfx.has('lose')) Sfx.lose(); else { Sfx.boom(); setTimeout(() => Sfx.lose(), 500); } }     // tiếng thua phát đúng lúc chữ của bên thắng phóng to
+      else { if (!Sfx.has('win')) Sfx.boom(); Sfx.win(); Fx.confetti(); }       // tiếng thắng phát đúng lúc chữ X/O bắt đầu phóng to
     }, 500);
     setTimeout(() => { if (Game.result === r){ UI.result(outcome, r, gain); if (!$('game').hidden) UI.surveyMaybe(); } }, 2900);
   }
@@ -450,7 +552,7 @@ const Arena = {
     const archery = Game.arena === 'archery';
     $('game').dataset.arena = Game.arena;
     $('board').classList.toggle('aiming', archery);
-    this.setSpin(archery && Game.mode === 'bot' && Game.level === 'hard' && !Game.over);
+    this.setSpin(archery && Game.level === 'hard' && !Game.over);          // mức Khó: bia quay, kể cả khi chơi với bạn
     if (!archery){ this.stop(); return; }
     $('nock').src = PIECE[Game.turn];
     if (!UI.ratioOk) $('bow').style.height = $('bow').offsetWidth * 150 / 240 + 'px';
@@ -479,7 +581,7 @@ const Arena = {
     const key = Game.moves + Game.turn + this.misses;      // mỗi lượt bốc gió một lần
     if (key !== this.windKey){
       this.windKey = key;
-      const max = Game.moves < 2 ? 0 : Game.mode === 'bot' ? CONFIG.wind[Game.level] : .5;
+      const max = Game.moves < 2 ? 0 : CONFIG.wind[Game.level] || .5;
       this.wind = Math.round((Math.random() * 2 - 1) * max * 10) / 10;
     }
     const w = this.wind, t = $('wind');
@@ -566,7 +668,9 @@ const Arena = {
   },
   async botShoot(target){
     const n = Game.n; let i = target;
-    if (Math.random() > CONFIG.aim[Game.level]){   // máy bắn lệch sang ô kế bên
+    // bàn càng lớn, ô càng nhỏ và người chơi càng khó bắn trúng, nên máy cũng bắn lệch nhiều hơn cho công bằng
+    const acc = CONFIG.aim[Game.level] * Math.max(0.5, 1 - 0.06 * (n - 3));
+    if (Math.random() > acc){   // máy bắn lệch sang ô kế bên
       const r = Math.floor(target / n), c = target % n, near = [];
       for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]){ const rr = r + dr, cc = c + dc; if (rr >= 0 && rr < n && cc >= 0 && cc < n) near.push(rr * n + cc); }
       i = near[Math.floor(Math.random() * near.length)];
@@ -661,7 +765,8 @@ const Net = {
 
 /* 10. UI */
 const UI = {
-  opts: { arena: 'archery', size: '3-3' },
+  opts: { mode: 'bot', level: 'medium', arena: 'archery', size: '3-3' },
+  surveyAsked: false,
   toastTimer: 0,
   ratioOk: !!(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1')),
   toast(text, ms = 3200){ const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { t.hidden = true; }, ms); },
@@ -676,7 +781,11 @@ const UI = {
     document.body.dataset.team = t;
     $('meImg').src = PACK[t]; $('meTeam').textContent = 'Phe ' + t;
     $('meStats').textContent = `${p.points} điểm · ${p.wins} trận thắng` + (p.streak > 1 ? ` · 🔥 ${p.streak} ngày liên tiếp` : '');
-    this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size);
+    this.seg('optArena', this.opts.arena); this.seg('optSize', this.opts.size); this.seg('optLevel', this.opts.level);
+    $('optMode').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === this.opts.mode));
+    const o = this.opts;
+    $('startBtn').textContent = o.mode === 'bot' ? 'Vào trận' : 'Vào trận · mời bạn';
+    Board.load(); Board.show(); if (Intro.done) Music.play('lobby');
     $('sizeHint').textContent = this.opts.size === '3-3' ? 'Mỗi người chỉ giữ 3 quân. Đặt quân thứ 4 thì quân cũ nhất biến mất.'
       : this.opts.size === '8-5-grow' ? 'Nối 5 quân để thắng. Có 4 quân vướng mép hoặc kín bàn thì bàn tự thêm 1 ô ở cả bốn phía. Không có hòa.'
       : 'Kín bàn mà chưa ai thắng thì bàn tự mở rộng. Không có hòa.';
@@ -686,10 +795,11 @@ const UI = {
   sound(){ const on = Store.p.sound; $('soundText').textContent = on ? 'Âm thanh: bật' : 'Âm thanh: tắt'; $('soundHome').classList.toggle('off', !on); $('soundGame').classList.toggle('off', !on); },
   startMatch(o){
     const [n, k, g] = this.opts.size.split('-'), grow = g === 'grow';
-    Game.setup(Object.assign({ n: +n, k: +k, grow, arena: this.opts.arena, remote: false, my: Store.p.team || 'X' }, o));
+    Game.setup(Object.assign({ n: +n, k: +k, grow, level: this.opts.level, arena: this.opts.arena, remote: false, my: Store.p.team || 'X' }, o));
     this.showGame(); Game.start();
   },
-  showGame(){ $('home').hidden = true; $('game').hidden = false; this.closeOverlays(); },
+  showGame(){ $('home').hidden = true; $('game').hidden = false; this.closeOverlays(); Music.stop(); },
+  openFriend(){ this.friendMenu(); $('friend').hidden = false; },
 
   names(){
     const my = Game.my, op = other(my);
@@ -746,7 +856,7 @@ const UI = {
     const team = Store.p.team || 'X';
     $('resultImg').src = PACK[r.winner || team]; $('resultImg').classList.add('pack');
     $('resultTitle').textContent = outcome === 'win' ? 'Bạn thắng!' : outcome === 'lose' ? (Game.mode === 'bot' ? 'Máy thắng rồi' : 'Bạn bè thắng rồi') : outcome === 'draw' ? 'Hòa rồi!' : `Người ${r.winner} thắng!`;
-    $('resultSub').textContent = outcome === 'win' ? `+${gain} điểm cho Phe ${team}` : outcome === 'lose' ? 'Làm ván nữa gỡ lại nha!' : outcome === 'local' ? 'Đổi lượt đi trước, làm ván nữa nha!' : '';
+    $('resultSub').textContent = outcome === 'win' ? `+${gain} điểm cho Phe ${team}` : outcome === 'lose' ? `+${gain} điểm cố gắng cho Phe ${team}. Làm ván nữa gỡ lại nha!` : outcome === 'local' ? 'Đổi lượt đi trước, làm ván nữa nha!' : '';
     $('result').hidden = false;
   },
 
@@ -756,7 +866,8 @@ const UI = {
   /* Khảo sát: tuổi, giới tính, chấm điểm Tayo X và Tayo O */
   ans: {},
   // Hiện ngay khi ván vừa xong (từ ván đầu tiên). Bấm "Để sau" thì ván sau hỏi lại, tối đa 2 lần bỏ qua.
-  surveyMaybe(){ const p = Store.p; if (p.survey === 'done' || (p.surveySkips || 0) >= 2 || !$('survey').hidden) return false; this.surveyOpen(); return true; },
+  // Mỗi lần vào game chỉ hỏi 1 lần, sau ván đầu tiên của lần đó. Ai đã trả lời rồi thì không hỏi lại.
+  surveyMaybe(){ if (Store.p.survey === 'done' || this.surveyAsked) return false; this.surveyAsked = true; this.surveyOpen(); return true; },
   surveyOpen(){ this.ans = {}; $('survey').querySelectorAll('.chips button').forEach(b => b.setAttribute('aria-pressed', 'false')); $('surveySend').disabled = true; $('survey').hidden = false; },
   surveyPick(q, v){
     this.ans[q] = v; const a = this.ans;
@@ -766,27 +877,61 @@ const UI = {
     const a = this.ans, p = Store.p;
     Track.send('khao_sat', { age: a.age, gender: a.gender, rateX: a.rateX, rateO: a.rateO }, KID_AGES.includes(a.age));
     p.survey = 'done'; p.points += CONFIG.points.survey; Store.save();
-    $('survey').hidden = true; Sfx.win(); Fx.confetti();
+    $('survey').hidden = true; Sfx.bonus(); Fx.confetti();
     this.toast(`Cảm ơn bạn! +${CONFIG.points.survey} điểm cho Phe ${p.team || 'X'}`);
     if (!$('home').hidden) this.home();
   }
 };
 
-/* Mở đầu: logo → quảng cáo Tayo X → Tayo O → cả cặp + nút Chơi ngay. Chạm để sang bước, có nút Bỏ qua. */
+/* Teaser mở đầu: chạm 1 lần để vào, rồi 6 cảnh tự chạy trong 15 giây, kết thúc ở nút "Chơi ngay". Có nút "Bỏ qua" ở góc trên. */
 const Intro = {
-  step: 0, timer: 0, done: false,
-  go(n){
-    clearTimeout(this.timer); this.step = n; $('intro').dataset.step = n;
-    if (n === 1 || n === 2){ Sfx.boom(); this.timer = setTimeout(() => this.go(n + 1), 2600); }
-    if (n === 3) Sfx.win();
+  step: 0, timers: [], done: false, music: false,
+  CUES: [0, 3000, 4500, 6000, 9000, 12000],        // mốc bắt đầu của cảnh 1..6 (mili giây), khớp nhịp nhạc: 1 ô nhịp = 1,5 giây, đoạn cao trào vào ở giây 6
+  at(ms, fn){ this.timers.push(setTimeout(fn, ms)); },
+  go(n){ this.step = n; $('intro').dataset.step = n; },
+  start(){
+    if (this.step !== 0 || this.done) return;
+    this.music = Music.play('teaser'); Board.show();     // có nhạc thì nhạc dẫn nhịp, bỏ các tiếng tự tạo đè lên
+    this.CUES.forEach((ms, i) => this.at(ms, () => { this.go(i + 1); this.cue(i + 1); }));
+    const bar = $('introBar'); bar.style.transition = 'width 15s linear'; requestAnimationFrame(() => { bar.style.width = '100%'; });
+  },
+  cue(n){
+    if (n <= 3 && !this.music) Sfx.boom();
+    if (n === 4) this.demo();
+    if (n === 5){ if (!this.music) Sfx.win(); this.at(2150, () => Sfx.place('X')); }
+    if (n === 6 && !this.music) Sfx.join();
+  },
+  // cảnh 4: giương cung bắn quân X vào ô, rồi O bắn lại
+  demo(){
+    const st = $('tzScene'), cells = [...$('tzBoard').children], str = $('tzString'), nock = $('tzNock'), aim = $('tzAim'), arrow = $('tzArrow');
+    cells.forEach((c, i) => { const v = i === 1 ? 'O' : i === 4 ? 'X' : ''; c.className = v ? 'f' : ''; c.innerHTML = v ? `<img src="${PIECE[v]}" alt="">` : ''; });
+    const center = el => { const r = el.getBoundingClientRect(), s = st.getBoundingClientRect(); return [r.left + r.width / 2 - s.left, r.top + r.height / 2 - s.top]; };
+    const shoot = (i, p, delay, pullMs) => this.at(delay, () => {
+      const s0 = performance.now(), [tx, ty] = center(cells[i]);
+      nock.src = PIECE[p]; nock.style.visibility = ''; aim.hidden = false;
+      const fire = () => {
+        const [sx, sy] = center(nock);
+        str.setAttribute('points', '22,62 120,62 218,62'); nock.style.visibility = 'hidden'; nock.style.transform = 'translate(-50%,0)';
+        arrow.src = PIECE[p]; arrow.hidden = false; Sfx.shoot();
+        const a = arrow.animate([{ transform: `translate(${sx}px,${sy}px) scale(1) rotate(0deg)` }, { transform: `translate(${tx}px,${ty}px) scale(.4) rotate(360deg)` }], { duration: Fx.still() ? 1 : 420, easing: 'cubic-bezier(.3,.6,.5,1)' });
+        a.onfinish = a.oncancel = () => { arrow.hidden = true; aim.hidden = true; cells[i].className = 'f pop'; cells[i].innerHTML = `<img src="${PIECE[p]}" alt="">`; Sfx.place(p); };
+      };
+      const step = now => {
+        if (this.done || this.step !== 4) return;
+        const k = Math.min(1, (now - s0) / pullMs), wob = 5 * (1 - k);
+        str.setAttribute('points', `22,62 120,${62 + k * 42} 218,62`); nock.style.transform = `translate(-50%,${k * 62}%)`;
+        aim.style.transform = `translate(${tx + Math.sin(now / 140) * wob}px,${ty + Math.cos(now / 170) * wob}px)`;
+        if (k < 1) requestAnimationFrame(step); else fire();
+      };
+      requestAnimationFrame(step);
+    });
+    shoot(2, 'X', 100, 900); shoot(6, 'O', 1500, 800);
   },
   end(how){
-    if (this.done) return; this.done = true; clearTimeout(this.timer);
-    $('intro').hidden = true; Track.send('mo_dau', { role: how });
+    if (this.done) return; this.done = true; this.timers.forEach(clearTimeout);
+    $('intro').hidden = true; Track.send('mo_dau', { role: how }); Music.fadeOut(); Music.play('lobby');
   },
-  wire(){
-    $('intro').onclick = e => { if (e.target.closest('#introSkip')) return this.end('bo_qua'); if (e.target.closest('#introPlay')) return this.end('xem_het'); if (this.step < 3) this.go(this.step + 1); };
-  }
+  wire(){ $('intro').onclick = e => { if (e.target.closest('#introSkip')) return this.end('bo_qua'); if (e.target.closest('#introPlay')) return this.end('xem_het'); this.start(); }; }
 };
 
 /* Gắn sự kiện */
@@ -794,13 +939,13 @@ function wire(){
   document.addEventListener('click', e => { if (e.target.closest('.btn, .team, .seg button')) Sfx.click(); }, true);
   $('optArena').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.arena = b.dataset.v; UI.home(); } };
   $('optSize').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.size = b.dataset.v; UI.home(); } };
-  $('playEasy').onclick = () => UI.startMatch({ mode: 'bot', level: 'easy' });
-  $('playMedium').onclick = () => UI.startMatch({ mode: 'bot', level: 'medium' });
-  $('playHard').onclick = () => UI.startMatch({ mode: 'bot', level: 'hard' });
-  $('playFriend').onclick = () => { UI.friendMenu(); $('friend').hidden = false; };
+  $('optMode').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.mode = b.dataset.v; Sfx.click(); UI.home(); } };
+  $('optLevel').onclick = e => { const b = e.target.closest('button'); if (b){ UI.opts.level = b.dataset.v; UI.home(); } };
+  $('startBtn').onclick = () => { if (UI.opts.mode === 'bot') UI.startMatch({ mode: 'bot' }); else UI.openFriend(); };
   $('changeTeam').onclick = () => { $('teamPick').hidden = false; };
   $('teamPick').onclick = e => { const b = e.target.closest('.team'); if (!b) return; const first = !Store.p.team; Store.p.team = b.dataset.team; Store.save(); $('teamPick').hidden = true; Sfx.join(); UI.home(); Track.send(first ? 'chon_phe' : 'doi_phe', {}); };
-  const toggleSound = () => { Store.p.sound = !Store.p.sound; Store.save(); UI.sound(); Sfx.click(); };
+  const toggleSound = () => { Store.p.sound = !Store.p.sound; Store.save(); UI.sound(); Sfx.click(); Music.sync(); };
+  document.addEventListener('visibilitychange', () => Music.sync());
   $('soundHome').onclick = toggleSound; $('soundGame').onclick = toggleSound;
 
   $('hostRoom').onclick = () => { UI.toast('Đang tạo phòng…', 8000); Net.host(); };
@@ -829,13 +974,14 @@ function wire(){
 
   $('survey').onclick = e => { const b = e.target.closest('.chips button'); if (!b) return; const box = b.parentElement;
     box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); UI.surveyPick(box.dataset.q, b.dataset.v); };
-  $('surveySkip').onclick = () => { $('survey').hidden = true; Store.p.surveySkips = (Store.p.surveySkips || 0) + 1; Store.save(); };
+  $('surveySkip').onclick = () => { $('survey').hidden = true; };
   $('surveySend').onclick = () => UI.surveySend();
   addEventListener('pagehide', () => { Track.flush(); Net.send({ t: 'bye' }); });
+  addEventListener('online', () => Track.flush());
 }
 
 /* Khởi động */
-Store.load(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush();
+Store.load(); Sfx.setup(); Fx.init(); wire(); Intro.wire(); UI.home(); Track.flush(); Board.show();
 (() => {  // vào bằng link mời: ?room=ABCD
   const q = new URLSearchParams(location.search), room = q.get('room');
   if (!room) return;

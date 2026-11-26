@@ -27,3 +27,15 @@ Ghi chú:
 ## Dashboard
 Vào [Looker Studio](https://lookerstudio.google.com) → Tạo → Nguồn dữ liệu → Google Sheets → chọn sheet trên.
 Biểu đồ gợi ý: người chơi theo nhóm tuổi × giới tính, điểm trung bình Tayo X và Tayo O, tỉ lệ phe X/O, số ván mỗi người, số người chơi theo ngày.
+
+## Cập nhật code Apps Script (cần làm lại mỗi khi `tools/google-sheet.gs` thay đổi)
+Ví dụ: để có bảng vàng X vs O, sheet phải chạy bản code mới.
+
+1. Mở sheet → **Tiện ích mở rộng → Apps Script**.
+2. Xóa hết code cũ, dán toàn bộ nội dung mới của `tools/google-sheet.gs`, bấm **Lưu**.
+3. Bấm **Triển khai → Quản lý các bản triển khai**.
+4. Bấm biểu tượng bút chì ở bản triển khai đang dùng, mục **Phiên bản** chọn **Phiên bản mới**, rồi bấm **Triển khai**.
+
+Làm đúng cách này thì địa chỉ `/exec` giữ nguyên, không phải sửa gì trong game. Đừng tạo "Tùy chọn triển khai mới", vì sẽ ra địa chỉ khác.
+
+Sau khi cập nhật, sheet có thêm tab `bang_vang`: mỗi ngày một dòng `ngay, X, O` là số trận thắng của hai phe trong ngày (giờ Việt Nam).

@@ -3,7 +3,11 @@
 Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Link chơi là `index.html` ở thư mục gốc.
 
 ## Có gì trong game
-- **Mở đầu và quảng cáo sản phẩm:** logo → Tayo X → Tayo O → cả cặp và nút Chơi ngay. Chạm để sang bước, có nút Bỏ qua. Chữ quảng cáo sửa trong `index.html` (khối `#intro`).
+- **Teaser mở đầu 15 giây:** chạm để vào, rồi 6 cảnh tự chạy (đối đầu X vs O, Tayo X, Tayo O, giương cung bắn, nối quân thắng, bảng vàng và nút Chơi ngay). Có nút "Bỏ qua" ở góc trên. Chữ quảng cáo sửa trong `index.html` (khối `#intro`), mốc giây sửa ở `Intro.CUES` trong `js/app.js`.
+- **Sảnh 3 bước:** Hình thức chơi (Với máy, Với bạn) → Mức độ (Dễ, Vừa, Khó) → Sân và bàn cờ → Vào trận. Chơi với bạn thì mức độ đổi luật ở sân bắn cung: gió mạnh dần, mức Khó bia quay 2 mặt.
+- **Bảng vàng X vs O:** số trận thắng của mỗi phe trong ngày, làm mới mỗi ngày, đọc từ Google Sheet (tab `bang_vang`).
+- **Nhạc và âm thanh làm từ file** (thư mục `assets/audio/`): `teaser.mp3` là nhạc nền teaser (60 giây, lặp liền mạch, các cảnh teaser khớp theo ô nhịp 1,5 giây); `win.mp3` phát khi thắng ván; `lose.mp3` khi thua ván; `bonus.mp3` khi nhận điểm thưởng khảo sát; `unlock.mp3` khi bạn bè vào phòng và khi chọn phe. Đổi file hoặc âm lượng ở `CONFIG.music`, `CONFIG.sfx`, `CONFIG.musicVolume`, `CONFIG.sfxVolume` trong `js/app.js`. Để trống một mục thì game dùng tiếng tự tạo thay thế.
+- **Khảo sát:** mỗi lần vào game hỏi 1 lần sau ván đầu; ai đã trả lời thì không hỏi lại.
 - **Chọn phe X hoặc O.** Giao diện đổi màu theo phe, thắng thì cộng điểm cho phe.
 - **Sân bắn cung (sân chính):** góc nhìn người bắn, bàn cờ dựng ở xa. Chạm giữ rồi kéo xuống để giương cung, kéo trái phải canh hướng, kéo sâu để bắn cao, thả tay để bắn. Có gió và tay rung nhẹ. Ra ngoài hoặc trúng ô đã có quân là mất lượt.
 - **Sân cổ điển:** chạm để đặt quân.
@@ -24,7 +28,29 @@ Web game caro cho campaign Tayo X-O. HTML/CSS/JS thuần, không cần build. Li
 | `assets/` | Logo, slogan, quân X/O. Đổi hình: thay file cùng tên |
 | `vendor/peerjs.min.js` | Thư viện kết nối 2 máy (PeerJS, giấy phép MIT) |
 | `tools/` | Code nhận data cho Google Sheet và hướng dẫn |
+| `.github/workflows/` | Lịch tự động 3 ngày một lần gọi vào Supabase để dự án gói miễn phí không bị tạm ngưng (chỉ chạy khi nằm trên nhánh `main`) |
 
 ## Chơi với bạn hoạt động thế nào
 Hai máy nối trực tiếp với nhau qua PeerJS, dùng máy chủ ghép nối miễn phí của PeerJS. Không cần máy chủ riêng.
 Với một số mạng công ty hoặc mạng di động chặn kết nối trực tiếp, phòng có thể không vào được; khi đó dùng "Chơi chung 1 máy".
+
+## Nguồn âm thanh
+| File | Nguồn | Giấy phép |
+|---|---|---|
+| `assets/audio/teaser.mp3` | "160BPM Electronic Loop" của RUOK, [OpenGameArt](https://opengameart.org/content/160bpm-electronic-loop) | CC0 1.0: dùng, cắt, chỉnh tự do, kể cả thương mại, không cần ghi tên |
+| `assets/audio/win.mp3`, `lose.mp3`, `bonus.mp3`, `unlock.mp3` | Mixkit (mixkit.co): "Completion of a level", "Player losing or failing", "Winning an extra bonus", "Unlock game notification" | Giấy phép Mixkit. Cần kiểm tra lại điều khoản và giữ trang tải về làm bằng chứng |
+
+## Cân bằng thắng thua
+Chỉnh trong `CONFIG` ở đầu `js/app.js`:
+- `blunder`: xác suất máy đi nhầm ở từng mức (Dễ 0,65 · Vừa 0,35 · Khó 0,18). Số càng cao máy càng dễ thua.
+- `aim`: độ chính xác của máy ở sân bắn cung; tự giảm khi bàn lớn.
+- `points`: điểm thắng theo mức, và `lose` là điểm cố gắng khi thua.
+
+Sau khi mở, xem tỉ lệ người thắng máy theo mức bằng câu lệnh này trong Supabase (SQL Editor). Mục tiêu ước lượng: Dễ 65–75%, Vừa 45–55%, Khó 20–30%:
+
+```sql
+select mode, size, arena, count(*) as so_van,
+       round(100.0 * count(*) filter (where result = 'win') / count(*)) as pct_nguoi_thang
+from van_dau where mode like 'may_%'
+group by mode, size, arena order by mode, size;
+```

@@ -1,0 +1,29 @@
+# Giữ cho dự án Supabase (gói miễn phí) không bị tạm ngưng vì 1 tuần không ai dùng.
+# Cứ 3 ngày gọi vào hàm đọc bảng vàng một lần (chỉ đọc, không ghi gì).
+# Lịch tự chạy chỉ hoạt động khi file này nằm trên nhánh main. Chạy tay: tab Actions → Giữ Supabase thức → Run workflow.
+# Nếu lần gọi thất bại (thường là dự án đã bị ngưng), GitHub sẽ gửi email báo lỗi cho chủ repo.
+name: Giữ Supabase thức
+
+on:
+  schedule:
+    - cron: '17 3 */3 * *'    # 03:17 UTC (10:17 giờ Việt Nam), cách 3 ngày
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Gọi bảng vàng (chỉ đọc)
+        env:
+          SB_URL: https://zcqcigmmbmuoxhsfwuyb.supabase.co
+          SB_KEY: sb_publishable_XPl3VOgRv3YwbeHHntNOoA_t7x4AXTS   # khóa công khai, cùng khóa nằm trong game
+        run: |
+          out=$(curl -fsS --retry 3 --retry-delay 10 --max-time 30 -X POST \
+            "$SB_URL/rest/v1/rpc/bang_vang_hom_nay" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "$out"
+          echo "$out" | grep -q '"X"' || { echo "Phản hồi lạ: dự án có thể đang tạm ngưng"; exit 1; }
